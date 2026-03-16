@@ -352,6 +352,9 @@ const AIAssistant=({est,clients,currentUser})=>{
   const[input,setInput]=useState("");
   const[loading,setLoading]=useState(false);
   const[unread,setUnread]=useState(0);
+  const[apiKey,setApiKey]=useState(()=>{try{return localStorage.getItem("bc_apikey")||"";}catch(e){return "";}});
+  const[apiKeyInput,setApiKeyInput]=useState("");
+  const[showKeySetup,setShowKeySetup]=useState(false);
   const bottomRef=useRef(null);
   const inputRef=useRef(null);
 
@@ -408,9 +411,13 @@ L'app ha 5 sezioni:
 Rispondi sempre in italiano. Se l'utente descrive un problema tecnico, cerca di guidarlo passo per passo.`;
   };
 
+  const saveApiKey=()=>{const k=apiKeyInput.trim();if(!k)return;setApiKey(k);try{localStorage.setItem("bc_apikey",k);}catch(e){}setShowKeySetup(false);setApiKeyInput("");};
+  const clearApiKey=()=>{setApiKey("");try{localStorage.removeItem("bc_apikey");}catch(e){}};
+
   const send=async(text)=>{
     const msg=text||input.trim();
     if(!msg||loading)return;
+    if(!apiKey){setShowKeySetup(true);return;}
     setInput("");
     const newMessages=[...messages,{role:"user",content:msg}];
     setMessages(newMessages);
@@ -418,7 +425,12 @@ Rispondi sempre in italiano. Se l'utente descrive un problema tecnico, cerca di 
     try{
       const resp=await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST",
-        headers:{"Content-Type":"application/json"},
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key":apiKey,
+          "anthropic-version":"2023-06-01",
+          "anthropic-dangerous-direct-browser-access":"true"
+        },
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514",
           max_tokens:1000,
@@ -427,9 +439,14 @@ Rispondi sempre in italiano. Se l'utente descrive un problema tecnico, cerca di 
         })
       });
       const data=await resp.json();
-      const reply=data.content?.[0]?.text||"Mi dispiace, non riesco a rispondere al momento.";
-      setMessages(p=>[...p,{role:"assistant",content:reply}]);
-      if(!open)setUnread(n=>n+1);
+      if(data.error){
+        const errMsg=data.error.type==="authentication_error"?"🔑 API key non valida. Clicca su ⚙️ per aggiornarla.":"⚠️ Errore API: "+data.error.message;
+        setMessages(p=>[...p,{role:"assistant",content:errMsg}]);
+      } else {
+        const reply=data.content?.[0]?.text||"Mi dispiace, non riesco a rispondere al momento.";
+        setMessages(p=>[...p,{role:"assistant",content:reply}]);
+        if(!open)setUnread(n=>n+1);
+      }
     }catch(e){
       setMessages(p=>[...p,{role:"assistant",content:"⚠️ Errore di connessione. Controlla la rete e riprova."}]);
     }
@@ -462,11 +479,30 @@ Rispondi sempre in italiano. Se l'utente descrive un problema tecnico, cerca di 
       <div style={{background:`linear-gradient(135deg,${T.sea},${T.seaLight})`,padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
         <div style={{width:36,height:36,borderRadius:"50%",background:"rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🤿</div>
         <div>
-          <div style={{fontWeight:700,color:"#fff",fontSize:14,fontFamily:font}}>Assistente Lido</div>
-          <div style={{fontSize:11,color:"rgba(255,255,255,.75)"}}>Powered by Claude AI · sempre disponibile</div>
+          <div style={{fontWeight:700,color:"#fff",fontSize:14,fontFamily:font}}>Assistente Bagno Capri</div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,.75)"}}>Powered by Claude AI · {apiKey?"✅ Connesso":"⚠️ API key mancante"}</div>
         </div>
-        <div style={{marginLeft:"auto",width:8,height:8,borderRadius:"50%",background:"#7aff7a",boxShadow:"0 0 6px rgba(122,255,122,.6)"}}/>
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
+          <button onClick={()=>setShowKeySetup(s=>!s)} title="Configura API key" style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,width:28,height:28,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>⚙️</button>
+          <div style={{width:8,height:8,borderRadius:"50%",background:apiKey?"#7aff7a":"#ffaa00",boxShadow:`0 0 6px ${apiKey?"rgba(122,255,122,.6)":"rgba(255,170,0,.6)"}`}}/>
+        </div>
       </div>
+      {/* API Key Setup */}
+      {showKeySetup&&<div style={{padding:"12px 14px",background:"rgba(14,124,140,.06)",borderBottom:`1px solid ${T.border}`}}>
+        <div style={{fontSize:12,fontWeight:700,color:T.sea,marginBottom:6}}>🔑 Anthropic API Key</div>
+        {apiKey?<div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <div style={{flex:1,fontSize:11,color:T.darkSoft,background:"rgba(0,0,0,.04)",borderRadius:8,padding:"6px 10px",fontFamily:"monospace"}}>{"sk-ant-..." + apiKey.slice(-6)}</div>
+          <button onClick={clearApiKey} style={{...btnS(T.warn),padding:"5px 10px",fontSize:11}}>Rimuovi</button>
+          <button onClick={()=>setShowKeySetup(false)} style={{...btnS("rgba(0,0,0,.08)",T.dark),padding:"5px 10px",fontSize:11}}>Chiudi</button>
+        </div>:<div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <div style={{fontSize:11,color:T.darkSoft}}>Inserisci la tua API key da <strong>console.anthropic.com</strong></div>
+          <div style={{display:"flex",gap:6}}>
+            <input value={apiKeyInput} onChange={e=>setApiKeyInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveApiKey()} placeholder="sk-ant-api03-..." style={{...inputSt,fontSize:12,padding:"7px 10px",flex:1,fontFamily:"monospace"}} type="password"/>
+            <button onClick={saveApiKey} disabled={!apiKeyInput.trim()} style={{...btnS(T.sea),padding:"7px 12px",fontSize:12}}>Salva</button>
+          </div>
+          <div style={{fontSize:10,color:T.darkSoft}}>La chiave viene salvata nel browser (localStorage) e non viene mai inviata a terzi.</div>
+        </div>}
+      </div>}
 
       {/* Messaggi */}
       <div style={{flex:1,overflowY:"auto",padding:"14px 14px 8px",display:"flex",flexDirection:"column",gap:10}}>
@@ -493,7 +529,11 @@ Rispondi sempre in italiano. Se l'utente descrive un problema tecnico, cerca di 
       </div>}
 
       {/* Input */}
-      <div style={{padding:"10px 12px",borderTop:`1px solid ${T.border}`,display:"flex",gap:8,alignItems:"center"}}>
+      {!apiKey?<div style={{padding:"12px 14px",borderTop:`1px solid ${T.border}`,textAlign:"center"}}>
+        <div style={{fontSize:12,color:T.darkSoft,marginBottom:8}}>Per usare l'assistente è necessaria una API key Anthropic</div>
+        <button onClick={()=>setShowKeySetup(true)} style={{...btnS(T.sea),justifyContent:"center",padding:"9px 18px",fontSize:13}}>🔑 Configura API Key</button>
+      </div>
+      :<div style={{padding:"10px 12px",borderTop:`1px solid ${T.border}`,display:"flex",gap:8,alignItems:"center"}}>
         <input
           ref={inputRef}
           value={input}
@@ -506,7 +546,7 @@ Rispondi sempre in italiano. Se l'utente descrive un problema tecnico, cerca di 
         <button onClick={()=>send()} disabled={!input.trim()||loading} style={{...btnS(input.trim()&&!loading?T.sea:"rgba(0,0,0,.08)",input.trim()&&!loading?"#fff":T.darkSoft),padding:"9px 14px",borderRadius:20,fontSize:13,flexShrink:0}}>
           {loading?"...":"↑"}
         </button>
-      </div>
+      </div>}
     </div>}
   </>);
 };
