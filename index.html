@@ -50,7 +50,7 @@ const buildBeachGrid=()=>{const rows=[];let n=1;
 const buildCabinRows=()=>{const rows=[];let n=1;for(let r=0;r<2;r++){const row=[];for(let c=0;c<15;c++)row.push({id:uid(),type:"cabana",num:n++,bookings:[]});rows.push(row);}return rows;};
 
 /* ── MODIFICATO: halfDay ora usa prezzi manuali invece della percentuale ── */
-const defaultData=()=>({name:"Bagno Capri",grid:buildBeachGrid(),cabins:buildCabinRows(),pricing:{umbrella:25,sunbed:10,cabana:40,sdraio:6,sedia_regista:5},halfDay:{enabled:true,startTime:"13:00",umbrella:15,sunbed:6,cabana:24},seasonPricing:[{id:uid(),name:"Bassa stagione",from:"2026-04-01",to:"2026-06-14",umbrella:18,sunbed:7,cabana:30},{id:uid(),name:"Media stagione",from:"2026-06-15",to:"2026-07-14",umbrella:25,sunbed:10,cabana:40},{id:uid(),name:"Alta stagione",from:"2026-07-15",to:"2026-08-31",umbrella:35,sunbed:15,cabana:55},{id:uid(),name:"Bassa stagione",from:"2026-09-01",to:"2026-09-30",umbrella:18,sunbed:7,cabana:30}]});
+const defaultData=()=>({name:"Bagno Capri",grid:buildBeachGrid(),cabins:buildCabinRows(),pricing:{umbrella:25,sunbed:10,cabana:40,sdraio:6,sedia_regista:5},halfDay:{enabled:true,startTime:"13:00",umbrella:15,sunbed:6,cabana:24},seasonPricing:[{id:uid(),name:"Bassa stagione",from:"2026-04-01",to:"2026-06-14",umbrella:18,sunbed:7,cabana:30},{id:uid(),name:"Alta stagione",from:"2026-07-15",to:"2026-08-31",umbrella:35,sunbed:15,cabana:55}]});
 const defaultUsers=()=>[{id:uid(),name:"Admin",email:"admin@bagnocapri.com",role:"owner",pin:"1234"},{id:uid(),name:"Marco Rossi",email:"marco@bagnocapri.com",role:"manager",pin:"5678"},{id:uid(),name:"Giulia Bianchi",email:"giulia@bagnocapri.com",role:"operator",pin:"0000"}];
 const defaultClients=()=>[{id:uid(),name:"Neri",phone:"333-111",email:"",notes:"Omb. 1 e 6",sub:"stagionale",created:"2025-03-01"},{id:uid(),name:"Borh",phone:"333-222",email:"",notes:"Omb. 2",sub:"stagionale",created:"2025-03-01"},{id:uid(),name:"Nardi",phone:"333-333",email:"",notes:"Omb. 3",sub:null,created:"2025-06-01"},{id:uid(),name:"Tuoni",phone:"333-444",email:"",notes:"Omb. 39-40",sub:"mensile",created:"2026-01-15"},{id:uid(),name:"Mazzoni",phone:"333-555",email:"",notes:"Omb. 51",sub:null,created:"2026-03-01"},{id:uid(),name:"Cecini",phone:"333-666",email:"",notes:"Omb. 43",sub:null,created:"2026-03-01"}];
 
@@ -76,7 +76,7 @@ const MiniBarChart=({data,labelKey,bars,height=180})=>{
 const Modal=({children,onClose,wide})=>(<div onClick={onClose} style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,animation:"fadeIn .25s"}}><div onClick={e=>e.stopPropagation()} style={{background:T.white,borderRadius:20,padding:"28px 32px",width:wide?600:420,maxWidth:"94vw",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(0,0,0,.3)",animation:"pop .3s",position:"relative"}}><button onClick={onClose} style={{position:"absolute",top:12,right:12,background:"none",border:"none",fontSize:18,cursor:"pointer",color:T.darkSoft}}>✕</button>{children}</div></div>);
 const Notify=({n})=>n?<div style={{position:"fixed",top:16,right:16,padding:"12px 22px",borderRadius:12,background:n.t==="ok"?T.ok:n.t==="err"?T.warn:T.sea,color:"#fff",fontWeight:600,fontSize:13,zIndex:2000,animation:"slideUp .3s",boxShadow:"0 8px 24px rgba(0,0,0,.15)",fontFamily:font}}>{n.m}</div>:null;
 const Stat=({label,value,color,icon})=>(<div style={{...cardS,textAlign:"center",padding:"16px 10px",flex:1,minWidth:110}}><div style={{fontSize:11,marginBottom:2}}>{icon}</div><div style={{fontFamily:fontD,fontSize:26,color,fontWeight:700}}>{value}</div><div style={{fontSize:10,color:T.darkSoft,marginTop:3,textTransform:"uppercase",letterSpacing:.5}}>{label}</div></div>);
-const NAV=[{id:"beach",icon:"🏖️",lbl:"Spiaggia"},{id:"calendar",icon:"📅",lbl:"Calendario"},{id:"clients",icon:"👥",lbl:"Clienti"},{id:"dashboard",icon:"📊",lbl:"Dashboard"},{id:"admin",icon:"⚙️",lbl:"Admin"}];
+const NAV=[{id:"beach",icon:"🏖️",lbl:"Spiaggia"},{id:"calendar",icon:"📅",lbl:"Calendario"},{id:"clients",icon:"👥",lbl:"Clienti"},{id:"inventory",icon:"📦",lbl:"Archivio"},{id:"dashboard",icon:"📊",lbl:"Dashboard"},{id:"admin",icon:"⚙️",lbl:"Admin"}];
 
 /* ─── BEACH MAP ─── */
 const CZ=50;
@@ -149,35 +149,202 @@ const CalendarView=({grid,cabins,selectedDate,setSelectedDate})=>{
 };
 
 /* ─── CLIENTS ─── */
-const ClientsView=({clients,setClients,grid,cabins})=>{
+const ClientsView=({clients,setClients,convenzionate,setConvenzionate,grid,cabins})=>{
+  const[tab,setTab]=useState("clienti");
+  /* ── tab clienti ── */
   const[search,setSearch]=useState("");const[showForm,setShowForm]=useState(false);const[editCl,setEditCl]=useState(null);
   const[form,setForm]=useState({name:"",phone:"",email:"",notes:"",sub:null});
   const filtered=clients.filter(cl=>cl.name.toLowerCase().includes(search.toLowerCase())||cl.phone.includes(search));
   const getSpent=name=>{let t=0;grid.forEach(r=>r.forEach(c=>c.bookings?.forEach(b=>{if(b.clientName===name)t+=b.total;})));cabins.forEach(r=>r.forEach(c=>c.bookings?.forEach(b=>{if(b.clientName===name)t+=b.total;})));return t;};
   const save=()=>{if(!form.name.trim())return;if(editCl)setClients(p=>p.map(c=>c.id===editCl.id?{...c,...form}:c));else setClients(p=>[...p,{id:uid(),...form,created:today()}]);setShowForm(false);setEditCl(null);};
+  /* ── tab convenzionate ── */
+  const[convSearch,setConvSearch]=useState("");const[showConvForm,setShowConvForm]=useState(false);const[editConv,setEditConv]=useState(null);
+  const[convForm,setConvForm]=useState({name:"",contact:"",phone:"",email:"",prezzo_tipo:"fisso",prezzo:0,note:""});
+  const filteredConv=(convenzionate||[]).filter(c=>c.name.toLowerCase().includes(convSearch.toLowerCase())||(c.contact||"").toLowerCase().includes(convSearch.toLowerCase()));
+  const getConvSpent=name=>{let t=0;grid.forEach(r=>r.forEach(c=>c.bookings?.forEach(b=>{if(b.isConv&&b.convName===name)t+=b.total;})));cabins.forEach(r=>r.forEach(c=>c.bookings?.forEach(b=>{if(b.isConv&&b.convName===name)t+=b.total;})));return t;};
+  const saveConv=()=>{if(!convForm.name.trim())return;if(editConv)setConvenzionate(p=>p.map(c=>c.id===editConv.id?{...c,...convForm}:c));else setConvenzionate(p=>[...p,{id:uid(),...convForm,created:today()}]);setShowConvForm(false);setEditConv(null);};
+  const tabBtn=(id,lbl,count)=>(<button onClick={()=>setTab(id)} style={{padding:"8px 18px",borderRadius:10,border:"none",background:tab===id?T.accent:"rgba(0,0,0,.04)",color:tab===id?"#fff":T.dark,cursor:"pointer",fontSize:13,fontFamily:font,fontWeight:tab===id?700:400,display:"flex",alignItems:"center",gap:6}}>{lbl}<span style={{background:tab===id?"rgba(255,255,255,.25)":"rgba(0,0,0,.08)",borderRadius:10,padding:"1px 7px",fontSize:11}}>{count}</span></button>);
   return(<div style={{display:"flex",flexDirection:"column",gap:16}}>
-    <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
-      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Cerca..." style={{...inputSt,maxWidth:300}}/>
-      <button onClick={()=>{setEditCl(null);setForm({name:"",phone:"",email:"",notes:"",sub:null});setShowForm(true);}} style={btnS(T.accent)}>+ Nuovo</button>
-      <span style={{fontSize:12,color:T.darkSoft,marginLeft:"auto"}}>{clients.length} clienti</span>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
-      {filtered.map(cl=>(<div key={cl.id} style={{...cardS,padding:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><div><div style={{fontWeight:700,color:T.dark,fontSize:14}}>{cl.name}</div><div style={{fontSize:11,color:T.darkSoft}}>{cl.phone}</div></div>
-        {cl.sub&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:5,background:T.goldSoft,color:T.gold,fontWeight:600,textTransform:"uppercase",height:"fit-content"}}>{cl.sub}</span>}</div>
-        {cl.notes&&<div style={{fontSize:11,color:T.darkSoft,fontStyle:"italic",marginBottom:6}}>"{cl.notes}"</div>}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${T.border}`,paddingTop:6}}><span style={{fontSize:11,color:T.darkSoft}}>€{getSpent(cl.name)}</span>
-        <div style={{display:"flex",gap:6}}><button onClick={()=>{setEditCl(cl);setForm({name:cl.name,phone:cl.phone,email:cl.email,notes:cl.notes,sub:cl.sub});setShowForm(true);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:13}}>✏️</button><button onClick={()=>setClients(p=>p.filter(x=>x.id!==cl.id))} style={{background:"none",border:"none",cursor:"pointer",fontSize:13}}>🗑️</button></div></div>
+    {/* Tabs */}
+    <div style={{display:"flex",gap:8}}>{tabBtn("clienti","👥 Clienti",clients.length)}{tabBtn("convenzionate","🤝 Convenzionate",(convenzionate||[]).length)}</div>
+    {/* ─ TAB CLIENTI ─ */}
+    {tab==="clienti"&&<>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Cerca..." style={{...inputSt,maxWidth:300}}/>
+        <button onClick={()=>{setEditCl(null);setForm({name:"",phone:"",email:"",notes:"",sub:null});setShowForm(true);}} style={btnS(T.accent)}>+ Nuovo</button>
+        <span style={{fontSize:12,color:T.darkSoft,marginLeft:"auto"}}>{clients.length} clienti</span>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+        {filtered.map(cl=>(<div key={cl.id} style={{...cardS,padding:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><div><div style={{fontWeight:700,color:T.dark,fontSize:14}}>{cl.name}</div><div style={{fontSize:11,color:T.darkSoft}}>{cl.phone}</div></div>
+          {cl.sub&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:5,background:T.goldSoft,color:T.gold,fontWeight:600,textTransform:"uppercase",height:"fit-content"}}>{cl.sub}</span>}</div>
+          {cl.notes&&<div style={{fontSize:11,color:T.darkSoft,fontStyle:"italic",marginBottom:6}}>"{cl.notes}"</div>}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${T.border}`,paddingTop:6}}><span style={{fontSize:11,color:T.darkSoft}}>€{getSpent(cl.name)}</span>
+          <div style={{display:"flex",gap:6}}><button onClick={()=>{setEditCl(cl);setForm({name:cl.name,phone:cl.phone,email:cl.email,notes:cl.notes,sub:cl.sub});setShowForm(true);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:13}}>✏️</button><button onClick={()=>setClients(p=>p.filter(x=>x.id!==cl.id))} style={{background:"none",border:"none",cursor:"pointer",fontSize:13}}>🗑️</button></div></div>
+        </div>))}
+      </div>
+      {showForm&&<Modal onClose={()=>setShowForm(false)}><h3 style={{fontFamily:fontD,fontSize:20,color:T.dark,marginBottom:16}}>{editCl?"Modifica":"Nuovo"} Cliente</h3>
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div><label style={labelSt}>Nome</label><input value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} style={inputSt}/></div>
+          <div style={{display:"flex",gap:10}}><div style={{flex:1}}><label style={labelSt}>Telefono</label><input value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))} style={inputSt}/></div><div style={{flex:1}}><label style={labelSt}>Email</label><input value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} style={inputSt}/></div></div>
+          <div><label style={labelSt}>Note</label><input value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} style={inputSt}/></div>
+          <div><label style={labelSt}>Abbonamento</label><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[null,"giornaliero","settimanale","mensile","stagionale"].map(s=><button key={s||"n"} onClick={()=>setForm(p=>({...p,sub:s}))} style={{padding:"5px 10px",borderRadius:7,fontSize:11,fontFamily:font,cursor:"pointer",border:form.sub===s?`2px solid ${T.accent}`:`1px solid ${T.border}`,background:form.sub===s?"rgba(226,97,59,.08)":T.white,color:T.dark}}>{s||"Nessuno"}</button>)}</div></div>
+          <button onClick={save} style={{...btnS(T.accent),justifyContent:"center",padding:"12px",marginTop:4}}>💾 Salva</button>
+        </div></Modal>}
+    </>}
+    {/* ─ TAB CONVENZIONATE ─ */}
+    {tab==="convenzionate"&&<>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={convSearch} onChange={e=>setConvSearch(e.target.value)} placeholder="🔍 Cerca struttura..." style={{...inputSt,maxWidth:300}}/>
+        <button onClick={()=>{setEditConv(null);setConvForm({name:"",contact:"",phone:"",email:"",prezzo_tipo:"fisso",prezzo:0,note:""});setShowConvForm(true);}} style={btnS(T.gold)}>+ Nuova struttura</button>
+        <span style={{fontSize:12,color:T.darkSoft,marginLeft:"auto"}}>{(convenzionate||[]).length} strutture</span>
+      </div>
+      {filteredConv.length===0&&<div style={{...cardS,textAlign:"center",padding:32,color:T.darkSoft}}>
+        <div style={{fontSize:32,marginBottom:8}}>🤝</div>
+        <div style={{fontSize:14,fontWeight:600}}>Nessuna struttura convenzionata</div>
+        <div style={{fontSize:12,marginTop:4}}>Aggiungi hotel, stabilimenti e partner con cui hai accordi di prezzo.</div>
+      </div>}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
+        {filteredConv.map(cv=>(<div key={cv.id} style={{...cardS,padding:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+            <div>
+              <div style={{fontWeight:700,color:T.dark,fontSize:15}}>{cv.name}</div>
+              {cv.contact&&<div style={{fontSize:12,color:T.darkSoft,marginTop:1}}>👤 {cv.contact}</div>}
+            </div>
+            <span style={{fontSize:10,padding:"3px 8px",borderRadius:6,background:T.goldSoft,color:T.gold,fontWeight:700,whiteSpace:"nowrap"}}>{cv.prezzo_tipo==="fisso"?`€${cv.prezzo} fisso`:`€${cv.prezzo}/gg`}</span>
+          </div>
+          {(cv.phone||cv.email)&&<div style={{display:"flex",gap:10,marginBottom:8}}>
+            {cv.phone&&<span style={{fontSize:11,color:T.darkSoft}}>📞 {cv.phone}</span>}
+            {cv.email&&<span style={{fontSize:11,color:T.darkSoft}}>✉️ {cv.email}</span>}
+          </div>}
+          {cv.note&&<div style={{fontSize:11,color:T.darkSoft,fontStyle:"italic",marginBottom:8,padding:"6px 10px",background:"rgba(0,0,0,.02)",borderRadius:6}}>"{cv.note}"</div>}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${T.border}`,paddingTop:8}}>
+            <div><span style={{fontSize:11,color:T.darkSoft}}>Incassato: </span><span style={{fontSize:13,fontWeight:700,color:T.accent}}>€{getConvSpent(cv.name)}</span></div>
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={()=>{setEditConv(cv);setConvForm({name:cv.name,contact:cv.contact,phone:cv.phone,email:cv.email,prezzo_tipo:cv.prezzo_tipo,prezzo:cv.prezzo,note:cv.note});setShowConvForm(true);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:13}}>✏️</button>
+              <button onClick={()=>setConvenzionate(p=>p.filter(x=>x.id!==cv.id))} style={{background:"none",border:"none",cursor:"pointer",fontSize:13}}>🗑️</button>
+            </div>
+          </div>
+        </div>))}
+      </div>
+      {showConvForm&&<Modal onClose={()=>setShowConvForm(false)} wide>
+        <h3 style={{fontFamily:fontD,fontSize:20,color:T.dark,marginBottom:16}}>{editConv?"Modifica":"Nuova"} Struttura Convenzionata</h3>
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div><label style={labelSt}>Nome struttura</label><input value={convForm.name} onChange={e=>setConvForm(p=>({...p,name:e.target.value}))} placeholder="Es. Hotel Sole, Camping Pineta..." style={inputSt}/></div>
+          <div><label style={labelSt}>Referente</label><input value={convForm.contact} onChange={e=>setConvForm(p=>({...p,contact:e.target.value}))} placeholder="Nome del referente" style={inputSt}/></div>
+          <div style={{display:"flex",gap:10}}>
+            <div style={{flex:1}}><label style={labelSt}>Telefono</label><input value={convForm.phone} onChange={e=>setConvForm(p=>({...p,phone:e.target.value}))} style={inputSt}/></div>
+            <div style={{flex:1}}><label style={labelSt}>Email</label><input value={convForm.email} onChange={e=>setConvForm(p=>({...p,email:e.target.value}))} style={inputSt}/></div>
+          </div>
+          <div>
+            <label style={labelSt}>Tipo prezzo accordato</label>
+            <div style={{display:"flex",gap:8,marginBottom:8}}>
+              {[["fisso","💶 Prezzo fisso (tot. prenotazione)"],["giornaliero","📅 Prezzo al giorno"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setConvForm(p=>({...p,prezzo_tipo:v}))} style={{flex:1,padding:"9px",borderRadius:9,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:600,border:convForm.prezzo_tipo===v?`2px solid ${T.gold}`:`1px solid ${T.border}`,background:convForm.prezzo_tipo===v?T.goldSoft:T.white,color:T.dark}}>{l}</button>
+              ))}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:18,fontWeight:700,color:T.darkSoft}}>€</span>
+              <input type="number" min="0" step="1" value={convForm.prezzo} onChange={e=>setConvForm(p=>({...p,prezzo:+e.target.value||0}))} style={{...inputSt,fontSize:20,fontFamily:fontD,fontWeight:700,textAlign:"center"}}/>
+              <span style={{fontSize:12,color:T.darkSoft,whiteSpace:"nowrap"}}>{convForm.prezzo_tipo==="giornaliero"?"/giorno":"totale"}</span>
+            </div>
+          </div>
+          <div><label style={labelSt}>Note accordo</label><textarea value={convForm.note} onChange={e=>setConvForm(p=>({...p,note:e.target.value}))} placeholder="Condizioni particolari, periodo validità, servizi inclusi..." style={{...inputSt,height:70,resize:"vertical"}}/></div>
+          <button onClick={saveConv} style={{...btnS(T.gold),justifyContent:"center",padding:"12px",marginTop:4}}>💾 Salva struttura</button>
+        </div>
+      </Modal>}
+    </>}
+  </div>);
+};
+
+/* ─── INVENTORY ─── */
+const InventoryView=({inventory,setInventory})=>{
+  const CATEGORIES=[
+    {key:"ombrelloni",icon:"🏖️",lbl:"Ombrelloni",color:T.sea},
+    {key:"lettini",icon:"🛏️",lbl:"Lettini",color:T.ok},
+    {key:"sdraio",icon:"🪑",lbl:"Sdraio",color:T.accent},
+    {key:"sedie_regista",icon:"🎬",lbl:"Sedie Regista",color:T.gold},
+  ];
+  const[selected,setSelected]=useState("ombrelloni");
+  const[showForm,setShowForm]=useState(false);
+  const[editItem,setEditItem]=useState(null);
+  const[form,setForm]=useState({codice:"",marca:"",stato:"disponibile",note:""});
+  const items=(inventory||{})[selected]||[];
+  const saveItem=()=>{
+    if(!form.codice.trim())return;
+    const newItem={id:uid(),...form,created:today()};
+    if(editItem){setInventory(p=>({...p,[selected]:(p[selected]||[]).map(x=>x.id===editItem.id?{...x,...form}:x)}));}
+    else{setInventory(p=>({...p,[selected]:[...(p[selected]||[]),newItem]}));}
+    setShowForm(false);setEditItem(null);
+  };
+  const deleteItem=(id)=>setInventory(p=>({...p,[selected]:(p[selected]||[]).filter(x=>x.id!==id)}));
+  const changeState=(id,stato)=>setInventory(p=>({...p,[selected]:(p[selected]||[]).map(x=>x.id===id?{...x,stato}:x)}));
+  const statoBg={disponibile:T.okSoft,in_uso:"rgba(14,124,140,.1)",manutenzione:T.warnSoft,fuori_uso:"rgba(0,0,0,.06)"};
+  const statoColor={disponibile:T.ok,in_uso:T.sea,manutenzione:T.warn,fuori_uso:T.darkSoft};
+  const statoLbl={disponibile:"✅ Disponibile",in_uso:"🔵 In uso",manutenzione:"🔧 Manutenzione",fuori_uso:"⚫ Fuori uso"};
+  const counts=CATEGORIES.map(cat=>{const its=(inventory||{})[cat.key]||[];return{...cat,total:its.length,disponibili:its.filter(x=>x.stato==="disponibile").length,in_uso:its.filter(x=>x.stato==="in_uso").length,manutenzione:its.filter(x=>x.stato==="manutenzione").length,fuori_uso:its.filter(x=>x.stato==="fuori_uso").length};});
+  return(<div style={{display:"flex",flexDirection:"column",gap:16}}>
+    {/* Summary cards */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+      {counts.map(cat=>(<div key={cat.key} onClick={()=>setSelected(cat.key)} style={{...cardS,padding:14,cursor:"pointer",border:selected===cat.key?`2px solid ${cat.color}`:`1px solid ${T.border}`,background:selected===cat.key?`rgba(0,0,0,.01)`:T.card,transition:"all .15s"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+          <span style={{fontSize:22}}>{cat.icon}</span>
+          <span style={{fontFamily:fontD,fontSize:16,color:T.dark,fontWeight:700}}>{cat.lbl}</span>
+        </div>
+        <div style={{fontFamily:fontD,fontSize:28,color:cat.color,fontWeight:700,marginBottom:6}}>{cat.total}</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {[["disponibili",T.ok,"✅"],["in_uso",T.sea,"🔵"],["manutenzione",T.warn,"🔧"],["fuori_uso",T.darkSoft,"⚫"]].map(([k,c,ic])=>cat[k]>0&&(
+            <span key={k} style={{fontSize:10,padding:"2px 6px",borderRadius:5,background:`${c}18`,color:c,fontWeight:600}}>{ic} {cat[k]}</span>
+          ))}
+        </div>
       </div>))}
     </div>
-    {showForm&&<Modal onClose={()=>setShowForm(false)}><h3 style={{fontFamily:fontD,fontSize:20,color:T.dark,marginBottom:16}}>{editCl?"Modifica":"Nuovo"} Cliente</h3>
+    {/* Selected category detail */}
+    <div style={{...cardS}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+        <h3 style={{fontFamily:fontD,fontSize:20,color:T.dark}}>{CATEGORIES.find(c=>c.key===selected)?.icon} {CATEGORIES.find(c=>c.key===selected)?.lbl} — {items.length} pezzi</h3>
+        <button onClick={()=>{setEditItem(null);setForm({codice:"",marca:"",stato:"disponibile",note:""});setShowForm(true);}} style={btnS(T.accent)}>+ Aggiungi</button>
+      </div>
+      {items.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:T.darkSoft}}>
+        <div style={{fontSize:28,marginBottom:8}}>{CATEGORIES.find(c=>c.key===selected)?.icon}</div>
+        <div style={{fontSize:13}}>Nessun pezzo registrato. Clicca "+ Aggiungi" per iniziare.</div>
+      </div>}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}}>
+        {items.map(item=>(<div key={item.id} style={{padding:"12px 14px",borderRadius:12,border:`1px solid ${T.border}`,background:statoBg[item.stato]||"rgba(0,0,0,.02)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+            <div>
+              <div style={{fontWeight:700,fontSize:14,color:T.dark}}>{item.codice}</div>
+              {item.marca&&<div style={{fontSize:11,color:T.darkSoft}}>{item.marca}</div>}
+            </div>
+            <div style={{display:"flex",gap:4}}>
+              <button onClick={()=>{setEditItem(item);setForm({codice:item.codice,marca:item.marca,stato:item.stato,note:item.note});setShowForm(true);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,padding:2}}>✏️</button>
+              <button onClick={()=>deleteItem(item.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,padding:2}}>🗑️</button>
+            </div>
+          </div>
+          {item.note&&<div style={{fontSize:10,color:T.darkSoft,fontStyle:"italic",marginBottom:6}}>"{item.note}"</div>}
+          {/* Stato selector */}
+          <select value={item.stato} onChange={e=>changeState(item.id,e.target.value)} style={{width:"100%",padding:"5px 8px",borderRadius:7,border:`1px solid ${statoColor[item.stato]}`,background:statoBg[item.stato],color:statoColor[item.stato],fontSize:11,fontWeight:700,fontFamily:font,cursor:"pointer",outline:"none"}}>
+            {Object.entries(statoLbl).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>))}
+      </div>
+    </div>
+    {showForm&&<Modal onClose={()=>setShowForm(false)}>
+      <h3 style={{fontFamily:fontD,fontSize:20,color:T.dark,marginBottom:16}}>{editItem?"Modifica":"Nuovo"} {CATEGORIES.find(c=>c.key===selected)?.lbl}</h3>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div><label style={labelSt}>Nome</label><input value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} style={inputSt}/></div>
-        <div style={{display:"flex",gap:10}}><div style={{flex:1}}><label style={labelSt}>Telefono</label><input value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))} style={inputSt}/></div><div style={{flex:1}}><label style={labelSt}>Email</label><input value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} style={inputSt}/></div></div>
-        <div><label style={labelSt}>Note</label><input value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} style={inputSt}/></div>
-        <div><label style={labelSt}>Abbonamento</label><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[null,"giornaliero","settimanale","mensile","stagionale"].map(s=><button key={s||"n"} onClick={()=>setForm(p=>({...p,sub:s}))} style={{padding:"5px 10px",borderRadius:7,fontSize:11,fontFamily:font,cursor:"pointer",border:form.sub===s?`2px solid ${T.accent}`:`1px solid ${T.border}`,background:form.sub===s?"rgba(226,97,59,.08)":T.white,color:T.dark}}>{s||"Nessuno"}</button>)}</div></div>
-        <button onClick={save} style={{...btnS(T.accent),justifyContent:"center",padding:"12px",marginTop:4}}>💾 Salva</button>
-      </div></Modal>}
+        <div><label style={labelSt}>Codice / Numero identificativo</label><input value={form.codice} onChange={e=>setForm(p=>({...p,codice:e.target.value}))} placeholder="Es. OMB-001, LET-12..." style={inputSt} autoFocus/></div>
+        <div><label style={labelSt}>Marca / Modello</label><input value={form.marca} onChange={e=>setForm(p=>({...p,marca:e.target.value}))} placeholder="Es. Cressi, Ozio..." style={inputSt}/></div>
+        <div><label style={labelSt}>Stato</label>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {Object.entries(statoLbl).map(([k,v])=>(
+              <button key={k} onClick={()=>setForm(p=>({...p,stato:k}))} style={{padding:"8px",borderRadius:9,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:600,border:form.stato===k?`2px solid ${statoColor[k]}`:`1px solid ${T.border}`,background:form.stato===k?statoBg[k]:T.white,color:form.stato===k?statoColor[k]:T.dark}}>{v}</button>
+            ))}
+          </div>
+        </div>
+        <div><label style={labelSt}>Note</label><textarea value={form.note} onChange={e=>setForm(p=>({...p,note:e.target.value}))} placeholder="Danneggiato, acquistato il..., numero seriale..." style={{...inputSt,height:60,resize:"vertical"}}/></div>
+        <button onClick={saveItem} style={{...btnS(T.accent),justifyContent:"center",padding:"12px",marginTop:4}}>💾 Salva</button>
+      </div>
+    </Modal>}
   </div>);
 };
 
@@ -595,7 +762,7 @@ Rispondi sempre in italiano. Se l'utente descrive un problema tecnico, cerca di 
 
 /* ═══════ MAIN ═══════ */
 function App(){
-  const[est,setEstRaw]=useState(defaultData);const[users,setUsers]=useState(defaultUsers);const[clients,setClients]=useState(defaultClients);
+  const[est,setEstRaw]=useState(defaultData);const[users,setUsers]=useState(defaultUsers);const[clients,setClients]=useState(defaultClients);const[convenzionate,setConvenzionate]=useState([]);const[inventory,setInventory]=useState({ombrelloni:[],lettini:[],sdraio:[],sedie_regista:[]});
   const[currentUser,setCurrentUser]=useState(null);const[page,setPage]=useState("beach");const[selectedDate,setSelectedDate]=useState(today());
   const[modal,setModal]=useState(null);const[notif,setNotif]=useState(null);const[loginPin,setLoginPin]=useState("");
   const[bookForm,setBookForm]=useState({clientName:"",from:today(),days:1,isHalfDay:false});
@@ -659,7 +826,8 @@ function App(){
         <BeachMap grid={est.grid} cabins={est.cabins} selectedDate={selectedDate} onBook={onBook} onBookCabin={onBookCabin}/>
       </div>}
       {page==="calendar"&&<CalendarView grid={est.grid} cabins={est.cabins} selectedDate={selectedDate} setSelectedDate={setSelectedDate}/>}
-      {page==="clients"&&<ClientsView clients={clients} setClients={setClients} grid={est.grid} cabins={est.cabins}/>}
+      {page==="clients"&&<ClientsView clients={clients} setClients={setClients} convenzionate={convenzionate} setConvenzionate={setConvenzionate} grid={est.grid} cabins={est.cabins}/>}
+      {page==="inventory"&&<InventoryView inventory={inventory} setInventory={setInventory}/>}
       {page==="dashboard"&&<DashboardView grid={est.grid} cabins={est.cabins} est={est}/>}
       {page==="admin"&&isAdmin&&<AdminPanel est={est} setEst={fn=>setEstRaw(typeof fn==="function"?fn:p=>({...p,...fn}))} users={users} setUsers={setUsers} currentUser={currentUser}/>}
     </main>
