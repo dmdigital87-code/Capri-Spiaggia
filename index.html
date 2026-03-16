@@ -336,6 +336,48 @@ const AdminPanel=({est,setEst,users,setUsers,currentUser})=>{
   </div>);
 };
 
+/* ═══════ MINI CALCULATOR MODAL ═══════ */
+const CalcModal=({onClose,onInsert})=>{
+  const[disp,setDisp]=useState("0");
+  const[first,setFirst]=useState(null);
+  const[op,setOp]=useState(null);
+  const[next,setNext]=useState(false);
+  const press=(v)=>{
+    if(v==="C"){setDisp("0");setFirst(null);setOp(null);setNext(false);}
+    else if(v==="="){ if(op&&first!==null){const a=parseFloat(first),b=parseFloat(disp);let r=op==="+"?a+b:op==="-"?a-b:op==="×"?a*b:op==="÷"&&b!==0?Math.round((a/b)*100)/100:0;setDisp(String(r));setFirst(null);setOp(null);setNext(true);}}
+    else if(["+","-","×","÷"].includes(v)){setFirst(disp);setOp(v);setNext(true);}
+    else if(v==="→"){onInsert(parseFloat(disp)||0);onClose();}
+    else if(v==="."){if(next){setDisp("0.");setNext(false);}else if(!disp.includes(".")){setDisp(disp+".");}}
+    else{if(next||disp==="0"){setDisp(v);setNext(false);}else{setDisp(disp.length<10?disp+v:disp);}}
+  };
+  const keys=[["C","÷","×","-"],["7","8","9","+"],[" 4","5","6","="],["1","2","3","→"],["0","."]];
+  const opKeys=["+","-","×","÷","=","→","C"];
+  const btnColor=(v)=>v==="→"?T.gold:v==="C"?T.warn:opKeys.includes(v)?T.sea:"rgba(0,0,0,.07)";
+  const btnText=(v)=>v==="→"?"→ usa":v===" 4"?"4":v;
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(30,19,10,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1100,animation:"fadeIn .2s"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:T.white,borderRadius:18,padding:20,width:240,boxShadow:"0 20px 60px rgba(0,0,0,.3)",animation:"pop .25s"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <span style={{fontFamily:fontD,fontSize:18,color:T.dark}}>🧮 Calcolatrice</span>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:16,cursor:"pointer",color:T.darkSoft}}>✕</button>
+        </div>
+        <div style={{background:"rgba(0,0,0,.04)",borderRadius:10,padding:"8px 12px",fontFamily:"monospace",fontSize:24,fontWeight:700,textAlign:"right",marginBottom:10,color:T.dark,minHeight:44,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+          {op&&<span style={{fontSize:12,color:T.darkSoft,marginRight:6}}>{first} {op}</span>}{disp}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+          {["C","÷","×","-","7","8","9","+","4","5","6","=","1","2","3","→","0","0","0","."].map((v,i)=>{
+            if(i===17||i===18)return null;
+            const isZero=i===16;
+            return(<button key={i} onClick={()=>press(v)} style={{gridColumn:isZero?"span 2":undefined,padding:"10px 0",borderRadius:8,border:"none",background:btnColor(v),color:["+","-","×","÷","=","→","C"].includes(v)?"#fff":T.dark,cursor:"pointer",fontSize:v==="→"?11:15,fontWeight:700,fontFamily:font,transition:"opacity .1s"}}>{btnText(v)}</button>);
+          })}
+          <button onClick={()=>press(".")} style={{padding:"10px 0",borderRadius:8,border:"none",background:"rgba(0,0,0,.07)",color:T.dark,cursor:"pointer",fontSize:15,fontWeight:700,fontFamily:font}}>.</button>
+        </div>
+        <div style={{fontSize:10,color:T.darkSoft,marginTop:10,textAlign:"center"}}>Premi <strong>→ usa</strong> per inserire il risultato nel prezzo</div>
+      </div>
+    </div>
+  );
+};
+
 /* ═══════ AI ASSISTANT ═══════ */
 const SUGGESTED_QUESTIONS=[
   "Come faccio una nuova prenotazione?",
@@ -672,6 +714,7 @@ function App(){
         </div>}
 
         {/* Strutture convenzionate */}
+        {bookForm.showCalc&&<CalcModal onClose={()=>setBookForm(p=>({...p,showCalc:false}))} onInsert={v=>setBookForm(p=>({...p,convPrice:v,showCalc:false}))}/>}
         <div style={{borderRadius:12,border:`1.5px solid ${bookForm.isConv?T.gold:T.border}`,overflow:"hidden"}}>
           <div onClick={()=>setBookForm(p=>({...p,isConv:!p.isConv,isHalfDay:false}))} style={{padding:"10px 14px",background:bookForm.isConv?T.goldSoft:"rgba(0,0,0,.02)",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:20,height:20,borderRadius:5,border:`2px solid ${bookForm.isConv?T.gold:T.darkSoft}`,background:bookForm.isConv?T.gold:"transparent",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12,transition:"all .15s"}}>{bookForm.isConv?"✓":""}</div>
@@ -680,40 +723,11 @@ function App(){
           </div>
           {bookForm.isConv&&<div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:10}}>
             <div><label style={labelSt}>Nome struttura</label><input value={bookForm.convName||""} onChange={e=>setBookForm(p=>({...p,convName:e.target.value}))} placeholder="Es. Hotel Sole, Stabilimento X..." style={inputSt}/></div>
-            <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
-              <div style={{flex:1}}><label style={labelSt}>Prezzo totale accordato €</label>
-                <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:20,fontWeight:700,color:T.darkSoft}}>€</span>
-                  <input type="number" min="0" step="1" value={bookForm.convPrice||""} onChange={e=>setBookForm(p=>({...p,convPrice:+e.target.value||0}))} placeholder="0" style={{...inputSt,fontSize:22,fontFamily:fontD,fontWeight:700,textAlign:"center"}}/>
-                </div>
-              </div>
-              {/* Mini calcolatrice */}
-              <div style={{flexShrink:0}}>
-                {(()=>{
-                  const[calcVal,setCalcVal]=React.useState("");
-                  const[calcDisp,setCalcDisp]=React.useState("0");
-                  const[calcOp,setCalcOp]=React.useState(null);
-                  const[calcFirst,setCalcFirst]=React.useState(null);
-                  const calcBtn=(v,st)=>(<button onClick={()=>{
-                    if(v==="C"){setCalcDisp("0");setCalcVal("");setCalcOp(null);setCalcFirst(null);}
-                    else if(v==="="){if(calcOp&&calcFirst!==null){const a=parseFloat(calcFirst),b=parseFloat(calcDisp);const r=calcOp==="+"?a+b:calcOp==="-"?a-b:calcOp==="×"?a*b:calcOp==="÷"&&b!==0?a/b:0;const rs=Math.round(r*100)/100;setCalcDisp(String(rs));setCalcVal(String(rs));setCalcOp(null);setCalcFirst(null);}
-                    }else if(["+","-","×","÷"].includes(v)){setCalcFirst(calcDisp);setCalcOp(v);setCalcVal("");}
-                    else if(v==="→"){setBookForm(p=>({...p,convPrice:parseFloat(calcDisp)||0}));}
-                    else{const nv=calcVal==="-0"?"":calcVal;const nd=nv+v;setCalcVal(nd);setCalcDisp(nd||"0");}
-                  }} style={{width:st==="wide"?56:26,height:26,margin:1,borderRadius:5,border:"none",background:v==="→"?T.gold:v==="C"?T.warn:["+","-","×","÷","="].includes(v)?T.sea:"rgba(0,0,0,.07)",color:v==="→"||v==="C"||["+","-","×","÷","="].includes(v)?"#fff":T.dark,cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:font}}>{v}</button>);
-                  return(<div style={{background:"rgba(0,0,0,.03)",borderRadius:10,padding:8,border:`1px solid ${T.border}`}}>
-                    <div style={{fontSize:10,color:T.darkSoft,marginBottom:4,textAlign:"center"}}>🧮 Calcolatrice</div>
-                    <div style={{background:T.white,borderRadius:6,padding:"4px 8px",fontFamily:"monospace",fontSize:14,fontWeight:700,textAlign:"right",marginBottom:4,minWidth:110,color:T.dark,border:`1px solid ${T.border}`}}>{calcDisp}</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:1}}>
-                      {calcBtn("C")}{calcBtn("÷")}{calcBtn("×")}{calcBtn("-")}
-                      {calcBtn("7")}{calcBtn("8")}{calcBtn("9")}{calcBtn("+")}
-                      {calcBtn("4")}{calcBtn("5")}{calcBtn("6")}{calcBtn("=")}
-                      {calcBtn("1")}{calcBtn("2")}{calcBtn("3")}{calcBtn("→")}
-                      {calcBtn("0","wide")}{calcBtn(".")}{calcBtn("00")}
-                    </div>
-                    <div style={{fontSize:9,color:T.darkSoft,marginTop:4,textAlign:"center"}}>→ inserisce il risultato</div>
-                  </div>);
-                })()}
+            <div><label style={labelSt}>Prezzo totale accordato €</label>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:20,fontWeight:700,color:T.darkSoft}}>€</span>
+                <input type="number" min="0" step="1" value={bookForm.convPrice||""} onChange={e=>setBookForm(p=>({...p,convPrice:+e.target.value||0}))} placeholder="0" style={{...inputSt,fontSize:22,fontFamily:fontD,fontWeight:700,textAlign:"center",flex:1}}/>
+                <button onClick={()=>setBookForm(p=>({...p,showCalc:true}))} style={{...btnS(T.gold),padding:"10px 14px",fontSize:18,flexShrink:0}} title="Apri calcolatrice">🧮</button>
               </div>
             </div>
           </div>}
