@@ -377,7 +377,7 @@ const AdminPanel=({est,setEst,users,setUsers,currentUser})=>{
   /* ── MODIFICATO: aggiorna i prezzi manuali mezza giornata ── */
   const updateHalfDay=(field,val)=>setEst(p=>({...p,halfDay:{...p.halfDay,[field]:field==="enabled"?val:field==="startTime"?val:parseInt(val)||0}}));
 
-  const TABS=[{id:"pricing",lbl:"💰 Prezzi & Stagioni"},{id:"halfday",lbl:"🕐 Mezza Giornata"},{id:"users",lbl:"👤 Utenti"},{id:"export",lbl:"📤 Esporta"}];
+  const TABS=[{id:"pricing",lbl:"💰 Prezzi & Stagioni"},{id:"stagionali",lbl:"⭐ Stagionali"},{id:"halfday",lbl:"🕐 Mezza Giornata"},{id:"users",lbl:"👤 Utenti"},{id:"export",lbl:"📤 Esporta"}];
   const secStyle={...cardS,display:"flex",flexDirection:"column",gap:16};
   const rowStyle={display:"flex",gap:8,alignItems:"flex-start",padding:"14px",background:"rgba(0,0,0,.02)",borderRadius:10,flexWrap:"wrap"};
   const smallInput={...inputSt,padding:"8px 10px",fontSize:13};
@@ -418,7 +418,90 @@ const AdminPanel=({est,setEst,users,setUsers,currentUser})=>{
       </div>}
 
       {/* ══════ TAB MEZZA GIORNATA — PREZZI MANUALI ══════ */}
-      {tab==="halfday"&&<div style={secStyle}>
+      {tab==="stagionali"&&(()=>{
+        const[calcDisp,setCalcDisp]=useState("0");const[calcFirst,setCalcFirst]=useState(null);const[calcOp,setCalcOp]=useState(null);const[calcNext,setCalcNext]=useState(false);
+        const calcPress=(v)=>{
+          if(v==="C"){setCalcDisp("0");setCalcFirst(null);setCalcOp(null);setCalcNext(false);}
+          else if(v==="="){if(calcOp&&calcFirst!==null){const a=parseFloat(calcFirst),b=parseFloat(calcDisp);const r=calcOp==="+"?a+b:calcOp==="-"?a-b:calcOp==="×"?a*b:calcOp==="÷"&&b!==0?Math.round((a/b)*100)/100:0;setCalcDisp(String(r));setCalcFirst(null);setCalcOp(null);setCalcNext(true);}}
+          else if(["+","-","×","÷"].includes(v)){setCalcFirst(calcDisp);setCalcOp(v);setCalcNext(true);}
+          else{if(calcNext||calcDisp==="0"){setCalcDisp(v==="."?"0.":v);setCalcNext(false);}else{setCalcDisp(calcDisp.length<12?calcDisp+v:calcDisp);}}
+        };
+        const calcKeys=["C","÷","×","-","7","8","9","+","4","5","6","=","1","2","3","0","."];
+        return(<div style={secStyle}>
+          <h3 style={{fontFamily:fontD,fontSize:20,color:T.dark}}>⭐ Prezzi Stagionali</h3>
+          <p style={{fontSize:12,color:T.darkSoft,marginTop:-8}}>Calcola e suggerisci i prezzi degli abbonamenti stagionali per ogni stagione configurata.</p>
+
+          {/* Per ogni stagione: simulatore di prezzo */}
+          {(est.seasonPricing||[]).map(sp=>{
+            const days=Math.round((new Date(sp.to)-new Date(sp.from))/(86400000))+1;
+            return(<div key={sp.id} style={{padding:16,background:"rgba(0,0,0,.02)",borderRadius:14,border:`1px solid ${T.border}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div>
+                  <div style={{fontFamily:fontD,fontSize:17,color:T.dark,fontWeight:700}}>{sp.name}</div>
+                  <div style={{fontSize:11,color:T.darkSoft}}>{fmtDate(sp.from)} → {fmtDate(sp.to)} · <strong>{days} giorni</strong></div>
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
+                {[["umbrella","🏖️","Ombrellone",[["sunbed","🛏️","Lettino"],[["sdraio","🪑","Sdraio"]],[["sedia_regista","🎬","S.Regista"]]]],["cabana","🏠","Cabina",[]]].map(([key,icon,lbl])=>{
+                  const baseDaily=sp[key]||est.pricing[key]||0;
+                  const stagBase=baseDaily*days;
+                  return(<div key={key} style={{background:T.card,borderRadius:10,padding:"10px 12px",border:`1px solid ${T.border}`}}>
+                    <div style={{fontSize:12,fontWeight:700,color:T.dark,marginBottom:4}}>{icon} {lbl}</div>
+                    <div style={{fontSize:11,color:T.darkSoft}}>€{baseDaily}/gg × {days} gg</div>
+                    <div style={{fontFamily:fontD,fontSize:20,color:T.accent,fontWeight:700,marginTop:2}}>= €{stagBase}</div>
+                    <div style={{fontSize:10,color:T.darkSoft,marginTop:2}}>Prezzo base calcolato</div>
+                  </div>);
+                })}
+              </div>
+              {/* Dotazioni aggiuntive stagionali */}
+              <div style={{marginTop:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:T.darkSoft,marginBottom:6,textTransform:"uppercase",letterSpacing:.5}}>Dotazioni aggiuntive per stagione</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                  {[["lettino","🛏️","Lettino","sunbed"],["sdraio","🪑","Sdraio","sdraio"],["sedia_regista","🎬","S.Regista","sedia_regista"]].map(([key,icon,lbl,priceKey])=>{
+                    const daily=est.pricing[priceKey]||0;
+                    return(<div key={key} style={{background:"rgba(201,150,58,.06)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                      <div style={{fontSize:12}}>{icon} {lbl}</div>
+                      <div style={{fontSize:11,color:T.darkSoft}}>€{daily}/gg</div>
+                      <div style={{fontFamily:fontD,fontSize:16,color:T.gold,fontWeight:700}}>€{daily*days}</div>
+                      <div style={{fontSize:9,color:T.darkSoft}}>× {days} gg</div>
+                    </div>);
+                  })}
+                </div>
+              </div>
+            </div>);
+          })}
+
+          {(est.seasonPricing||[]).length===0&&<div style={{textAlign:"center",color:T.darkSoft,padding:24,background:"rgba(0,0,0,.02)",borderRadius:12}}>Nessuna stagione configurata. Aggiungila da "Prezzi & Stagioni".</div>}
+
+          {/* Calcolatrice */}
+          <div style={{...cardS,padding:16}}>
+            <h4 style={{fontFamily:fontD,fontSize:16,color:T.dark,marginBottom:12}}>🧮 Calcolatrice</h4>
+            <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+              <div style={{flex:1,minWidth:200}}>
+                <div style={{background:"rgba(0,0,0,.04)",borderRadius:10,padding:"10px 14px",fontFamily:"monospace",fontSize:26,fontWeight:700,textAlign:"right",marginBottom:8,color:T.dark,minHeight:50,display:"flex",alignItems:"center",justifyContent:"flex-end"}}>
+                  {calcOp&&<span style={{fontSize:14,color:T.darkSoft,marginRight:8}}>{calcFirst} {calcOp}</span>}{calcDisp}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+                  {calcKeys.map((v,i)=>(<button key={i} onClick={()=>calcPress(v)} style={{padding:"10px 0",borderRadius:8,border:"none",background:["+","-","×","÷","="].includes(v)?T.sea:v==="C"?T.warn:"rgba(0,0,0,.07)",color:["+","-","×","÷","=","C"].includes(v)?"#fff":T.dark,cursor:"pointer",fontSize:15,fontWeight:700,fontFamily:font}}>{v}</button>))}
+                </div>
+              </div>
+              <div style={{flex:1,minWidth:180}}>
+                <div style={{fontSize:12,color:T.darkSoft,marginBottom:8}}>💡 Suggerimenti calcolo:</div>
+                {(est.seasonPricing||[]).map(sp=>{
+                  const days=Math.round((new Date(sp.to)-new Date(sp.from))/(86400000))+1;
+                  const base=(sp.umbrella||est.pricing.umbrella||0)*days;
+                  return(<div key={sp.id} style={{padding:"8px 12px",background:"rgba(0,0,0,.03)",borderRadius:8,marginBottom:6}}>
+                    <div style={{fontSize:11,fontWeight:600,color:T.dark}}>{sp.name} ({days}gg)</div>
+                    <div style={{fontSize:11,color:T.darkSoft}}>🏖️ €{sp.umbrella||est.pricing.umbrella}/gg × {days} = <button onClick={()=>{setCalcDisp(String(base));setCalcNext(true);}} style={{background:"none",border:"none",color:T.accent,cursor:"pointer",fontWeight:700,fontSize:11,padding:0}}>€{base}</button></div>
+                  </div>);
+                })}
+              </div>
+            </div>
+          </div>
+        </div>);
+      })()}
+
+            {tab==="halfday"&&<div style={secStyle}>
         <h3 style={{fontFamily:fontD,fontSize:20,color:T.dark}}>🕐 Mezza Giornata</h3>
         <p style={{fontSize:13,color:T.darkSoft}}>Abilita la prenotazione per mezza giornata e imposta liberamente il prezzo per ogni tipo.</p>
 
@@ -983,19 +1066,32 @@ function App(){
   const setCabins=fn=>setEstRaw(prev=>({...prev,cabins:typeof fn==="function"?fn(prev.cabins):fn}));
 
   /* ── MODIFICATO: calcola il prezzo usando il prezzo manuale mezza giornata ── */
-  const calcPrice=(type,days,from,isHalfDay=false,extras={},isConv=false,convPrice=0)=>{
+  const calcPrice=(type,days,from,isHalfDay=false,extras={},isConv=false,convPrice=0,to=null)=>{
     if(isConv)return Math.round(convPrice);
+    const extrasPerDay=(extras.lettino||0)*(est.pricing.sunbed||10)+(extras.sdraio||0)*(est.pricing.sdraio||6)+(extras.sedia_regista||0)*(est.pricing.sedia_regista||5);
+    // if to is provided, calculate day by day across seasons
+    if(to&&to!==from){
+      let total=0;
+      const start=new Date(from);const end=new Date(to);
+      for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
+        const ds=d.toISOString().split("T")[0];
+        const sp=est.seasonPricing?.find(s=>ds>=s.from&&ds<=s.to);
+        const base=sp&&sp[type]!=null?sp[type]:(est.pricing[type]||ITEMS[type]?.price||0);
+        const mainPrice=isHalfDay&&est.halfDay?.enabled?(est.halfDay[type]??Math.round(base*0.6)):base;
+        total+=mainPrice+extrasPerDay;
+      }
+      return Math.round(total);
+    }
     const sp=est.seasonPricing?.find(s=>from>=s.from&&from<=s.to);
     const base=sp&&sp[type]!=null?sp[type]:(est.pricing[type]||ITEMS[type]?.price||0);
     let mainPrice=isHalfDay&&est.halfDay?.enabled?(est.halfDay[type]??Math.round(base*0.6)):base;
-    let extrasTotal=(extras.lettino||0)*(est.pricing.sunbed||10)+(extras.sdraio||0)*(est.pricing.sdraio||6)+(extras.sedia_regista||0)*(est.pricing.sedia_regista||5);
-    return Math.round((mainPrice+extrasTotal)*days);
+    return Math.round((mainPrice+extrasPerDay)*days);
   };
 
   const handleLogin=()=>{const u=users.find(u=>u.pin===loginPin);if(u){setCurrentUser(u);setPage("beach");notify(`Benvenuto, ${u.name}!`);setLoginPin("");}else notify("PIN errato!","err");};
-  const onBook=(r,c,cell,bk)=>{if(bk)setModal({type:"details",r,c,cell,bk,src:"grid"});else{setBookForm({clientName:"",from:selectedDate,days:1,isHalfDay:false,extras:{lettino:0,sdraio:0,sedia_regista:0},isConv:false,convName:"",convPrice:0,sub:null});setModal({type:"book",r,c,cell,src:"grid"});}};
-  const onBookCabin=(r,c,cell,bk)=>{if(bk)setModal({type:"details",r,c,cell,bk,src:"cabin"});else{setBookForm({clientName:"",from:selectedDate,days:1,isHalfDay:false,extras:{lettino:0,sdraio:0,sedia_regista:0},isConv:false,convName:"",convPrice:0,sub:null});setModal({type:"book",r,c,cell,src:"cabin"});}};
-  const confirmBooking=()=>{if(!bookForm.clientName.trim())return;const{r,c,cell,src}=modal;const to=addDays(bookForm.from,bookForm.days-1);const total=calcPrice(cell.type,bookForm.days,bookForm.from,bookForm.isHalfDay,bookForm.extras||{},bookForm.isConv,bookForm.convPrice);const nb={id:uid(),clientName:bookForm.clientName,from:bookForm.from,to,days:bookForm.days,isHalfDay:bookForm.isHalfDay,extras:bookForm.extras||{},isConv:bookForm.isConv||false,convName:bookForm.convName||"",sub:bookForm.sub||null,total};
+  const onBook=(r,c,cell,bk)=>{if(bk)setModal({type:"details",r,c,cell,bk,src:"grid"});else{setBookForm({clientName:"",from:selectedDate,to:addDays(selectedDate,0),days:1,isHalfDay:false,extras:{lettino:0,sdraio:0,sedia_regista:0},isConv:false,convName:"",convPrice:0,sub:null});setModal({type:"book",r,c,cell,src:"grid"});}};
+  const onBookCabin=(r,c,cell,bk)=>{if(bk)setModal({type:"details",r,c,cell,bk,src:"cabin"});else{setBookForm({clientName:"",from:selectedDate,to:addDays(selectedDate,0),days:1,isHalfDay:false,extras:{lettino:0,sdraio:0,sedia_regista:0},isConv:false,convName:"",convPrice:0,sub:null});setModal({type:"book",r,c,cell,src:"cabin"});}};
+  const confirmBooking=()=>{if(!bookForm.clientName.trim())return;const{r,c,cell,src}=modal;const toDate=bookForm.to||addDays(bookForm.from,bookForm.days-1);const extras=bookForm.extras||{};const extrasTotal=(extras.lettino||0)*(est.pricing.sunbed||10)+(extras.sdraio||0)*(est.pricing.sdraio||6)+(extras.sedia_regista||0)*(est.pricing.sedia_regista||5);const extrasTot=extrasTotal*bookForm.days;const total=bookForm.sub==="stagionale"?(bookForm.stagPrezzo||0)+extrasTot:bookForm.isConv?bookForm.convPrice:calcPrice(cell.type,bookForm.days,bookForm.from,bookForm.isHalfDay,extras,false,0,toDate);const nb={id:uid(),clientName:bookForm.clientName,from:bookForm.from,to:toDate,days:bookForm.days,isHalfDay:bookForm.isHalfDay,extras,isConv:bookForm.isConv||false,convName:bookForm.convName||"",sub:bookForm.sub||null,total};
     if(src==="grid")setGrid(g=>g.map((row,ri)=>row.map((cl,ci)=>ri===r&&ci===c?{...cl,bookings:[...cl.bookings,nb]}:cl)));
     else setCabins(g=>g.map((row,ri)=>row.map((cl,ci)=>ri===r&&ci===c?{...cl,bookings:[...cl.bookings,nb]}:cl)));
     const existingCl=clients.find(cl=>cl.name.toLowerCase()===bookForm.clientName.toLowerCase());if(!existingCl)setClients(p=>[...p,{id:uid(),name:bookForm.clientName,phone:"",email:"",notes:"",sub:bookForm.sub||null,created:today()}]);else if(bookForm.sub&&!existingCl.sub)setClients(p=>p.map(cl=>cl.name.toLowerCase()===bookForm.clientName.toLowerCase()?{...cl,sub:bookForm.sub}:cl));
@@ -1167,25 +1263,60 @@ function App(){
       <h3 style={{fontFamily:fontD,fontSize:22,color:T.dark,marginBottom:2}}>{modal.cell.type==="cabana"?"🏠 Prenota Cabina":"🏖️ Prenota Ombrellone"}</h3>
       <p style={{color:T.darkSoft,fontSize:12,marginBottom:14}}>{modal.cell.type==="cabana"?`Cabina C${modal.cell.num}`:`Ombrellone n° ${modal.cell.num} · Fila ${modal.cell.fila}`}</p>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
-        {/* Cliente + date */}
+
+        {/* Cliente */}
         <div><label style={labelSt}>Cliente</label><input list="cl-list" value={bookForm.clientName} onChange={e=>setBookForm(p=>({...p,clientName:e.target.value}))} placeholder="Nome" style={inputSt}/><datalist id="cl-list">{clients.map(cl=><option key={cl.id} value={cl.name}/>)}</datalist></div>
+
+        {/* Tipo abbonamento */}
         <div>
           <label style={labelSt}>Tipo abbonamento</label>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {[null,"giornaliero","settimanale","mensile","stagionale"].map(s=>(
-              <button key={s||"n"} onClick={()=>setBookForm(p=>({...p,sub:s}))} style={{padding:"5px 10px",borderRadius:7,fontSize:11,fontFamily:font,cursor:"pointer",border:bookForm.sub===s?`2px solid ${s==="stagionale"?T.gold:T.accent}`:`1px solid ${T.border}`,background:bookForm.sub===s?s==="stagionale"?T.goldSoft:"rgba(226,97,59,.08)":T.white,color:T.dark,fontWeight:bookForm.sub===s?700:400}}>
+              <button key={s||"n"} onClick={()=>{
+                setBookForm(p=>({...p,sub:s,isHalfDay:s==="stagionale"?false:p.isHalfDay}));
+              }} style={{padding:"6px 12px",borderRadius:8,fontSize:12,fontFamily:font,cursor:"pointer",border:bookForm.sub===s?`2px solid ${s==="stagionale"?T.gold:T.accent}`:`1px solid ${T.border}`,background:bookForm.sub===s?s==="stagionale"?T.goldSoft:"rgba(226,97,59,.08)":T.white,color:T.dark,fontWeight:bookForm.sub===s?700:400}}>
                 {s==="stagionale"?"⭐ Stagionale":s||"Nessuno"}
               </button>
             ))}
           </div>
         </div>
+
+        {/* Banner stagionale — prezzo unico intero periodo */}
+        {bookForm.sub==="stagionale"&&<div style={{background:T.goldSoft,borderRadius:12,border:`1.5px solid rgba(201,150,58,.35)`,padding:"14px 16px"}}>
+          <div style={{fontSize:13,fontWeight:700,color:T.gold,marginBottom:10}}>⭐ Abbonamento Stagionale — intero periodo apertura</div>
+          <label style={labelSt}>💶 Prezzo stagionale accordato con il cliente</label>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <span style={{fontSize:20,color:T.darkSoft,fontWeight:700}}>€</span>
+            <input autoFocus type="number" min="0" step="1" value={bookForm.stagPrezzo||""} onChange={e=>setBookForm(p=>({...p,stagPrezzo:+e.target.value||0}))} placeholder="0" style={{...inputSt,fontSize:26,fontFamily:fontD,fontWeight:700,textAlign:"center",flex:1}}/>
+            <button onClick={()=>setBookForm(p=>({...p,showCalc:true}))} style={{...btnS(T.gold),padding:"10px 14px",fontSize:18,flexShrink:0}} title="Calcolatrice">🧮</button>
+          </div>
+        </div>}
+
+        {/* Date arrivo / partenza */}
         <div style={{display:"flex",gap:10}}>
-          <div style={{flex:1}}><label style={labelSt}>Dal</label><input type="date" value={bookForm.from} onChange={e=>setBookForm(p=>({...p,from:e.target.value}))} style={inputSt}/></div>
-          <div style={{flex:1}}><label style={labelSt}>Giorni</label><input type="number" min="1" max="90" value={bookForm.days} onChange={e=>setBookForm(p=>({...p,days:+e.target.value||1}))} style={inputSt}/></div>
+          <div style={{flex:1}}>
+            <label style={labelSt}>Arrivo</label>
+            <input type="date" value={bookForm.from} onChange={e=>{
+              const f=e.target.value;const t=(bookForm.to||f)<f?f:(bookForm.to||f);
+              const d=Math.round((new Date(t)-new Date(f))/(86400000))+1;
+              setBookForm(p=>({...p,from:f,to:t,days:Math.max(1,d)}));
+            }} style={inputSt}/>
+          </div>
+          <div style={{flex:1}}>
+            <label style={labelSt}>Partenza</label>
+            <input type="date" value={bookForm.to||bookForm.from} min={bookForm.from} onChange={e=>{
+              const t=e.target.value;const d=Math.round((new Date(t)-new Date(bookForm.from))/(86400000))+1;
+              setBookForm(p=>({...p,to:t,days:Math.max(1,d)}));
+            }} style={inputSt}/>
+          </div>
+          <div style={{width:70}}>
+            <label style={labelSt}>Notti</label>
+            <div style={{...inputSt,textAlign:"center",fontFamily:fontD,fontSize:20,fontWeight:700,color:T.accent,padding:"10px 4px",background:"rgba(0,0,0,.02)",cursor:"default"}}>{bookForm.days}</div>
+          </div>
         </div>
 
-        {/* Mezza giornata */}
-        {est.halfDay?.enabled&&!bookForm.isConv&&<div>
+        {/* Mezza giornata — solo se NON stagionale */}
+        {est.halfDay?.enabled&&!bookForm.isConv&&bookForm.sub!=="stagionale"&&<div>
           <label style={labelSt}>Tipo giornata</label>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>setBookForm(p=>({...p,isHalfDay:false}))} style={{flex:1,padding:"10px",borderRadius:10,cursor:"pointer",fontFamily:font,fontSize:13,fontWeight:600,border:!bookForm.isHalfDay?`2px solid ${T.accent}`:`1.5px solid ${T.border}`,background:!bookForm.isHalfDay?"rgba(226,97,59,.06)":T.white,color:T.dark}}>☀️ Giornata intera</button>
@@ -1197,8 +1328,11 @@ function App(){
 
         {/* Extra dotazioni */}
         {!bookForm.isConv&&<div style={{background:"rgba(0,0,0,.02)",borderRadius:12,padding:"12px 14px",border:`1px solid ${T.border}`}}>
-          <label style={{...labelSt,marginBottom:10}}>🛏️ Dotazioni aggiuntive</label>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <label style={{...labelSt,marginBottom:0}}>🛏️ Dotazioni aggiuntive</label>
+            {bookForm.sub==="stagionale"&&<span style={{fontSize:10,color:T.gold,fontWeight:600}}>prezzi per giorno</span>}
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {[
               {key:"lettino",icon:"🛏️",lbl:"Lettino",price:est.pricing.sunbed||10},
               {key:"sdraio",icon:"🪑",lbl:"Sdraio",price:est.pricing.sdraio||6},
@@ -1206,16 +1340,16 @@ function App(){
             ].map(({key,icon,lbl,price})=>{
               const qty=(bookForm.extras||{})[key]||0;
               return(<div key={key} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontSize:16}}>{icon}</span>
+                <div>
+                  <span style={{fontSize:15,marginRight:6}}>{icon}</span>
                   <span style={{fontSize:13,color:T.dark,fontWeight:500}}>{lbl}</span>
-                  <span style={{fontSize:11,color:T.darkSoft}}>€{price}/gg cad.</span>
+                  <span style={{fontSize:10,color:T.darkSoft,marginLeft:6}}>€{price}/gg</span>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <button onClick={()=>setBookForm(p=>({...p,extras:{...p.extras,[key]:Math.max(0,(p.extras?.[key]||0)-1)}}))} style={{width:28,height:28,borderRadius:8,border:`1px solid ${T.border}`,background:T.white,cursor:"pointer",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",color:T.darkSoft}}>−</button>
-                  <span style={{width:24,textAlign:"center",fontWeight:700,fontSize:14,color:T.dark}}>{qty}</span>
-                  <button onClick={()=>setBookForm(p=>({...p,extras:{...p.extras,[key]:(p.extras?.[key]||0)+1}}))} style={{width:28,height:28,borderRadius:8,border:`1px solid ${T.border}`,background:T.sea,cursor:"pointer",fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff"}}>+</button>
-                  {qty>0&&<span style={{fontSize:11,color:T.accent,fontWeight:600,minWidth:40}}>€{price*qty*bookForm.days}</span>}
+                  <button onClick={()=>setBookForm(p=>({...p,extras:{...p.extras,[key]:Math.max(0,(p.extras?.[key]||0)-1)}}))} style={{width:28,height:28,borderRadius:8,border:`1px solid ${T.border}`,background:T.white,cursor:"pointer",fontSize:16,fontWeight:700,color:T.darkSoft,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                  <span style={{width:22,textAlign:"center",fontWeight:700,fontSize:14,color:T.dark}}>{qty}</span>
+                  <button onClick={()=>setBookForm(p=>({...p,extras:{...p.extras,[key]:(p.extras?.[key]||0)+1}}))} style={{width:28,height:28,borderRadius:8,border:"none",background:T.sea,cursor:"pointer",fontSize:16,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                  {qty>0&&<span style={{fontSize:11,color:T.accent,fontWeight:600,minWidth:56,textAlign:"right"}}>€{price*qty}/gg</span>}
                 </div>
               </div>);
             })}
@@ -1223,42 +1357,79 @@ function App(){
         </div>}
 
         {/* Strutture convenzionate */}
-        {bookForm.showCalc&&<CalcModal onClose={()=>setBookForm(p=>({...p,showCalc:false}))} onInsert={v=>setBookForm(p=>({...p,convPrice:v,showCalc:false}))}/>}
+        {bookForm.showCalc&&<CalcModal onClose={()=>setBookForm(p=>({...p,showCalc:false}))} onInsert={v=>setBookForm(p=>({...p,stagPrezzo:v,convPrice:v,showCalc:false}))}/>}
         <div style={{borderRadius:12,border:`1.5px solid ${bookForm.isConv?T.gold:T.border}`,overflow:"hidden"}}>
           <div onClick={()=>setBookForm(p=>({...p,isConv:!p.isConv,isHalfDay:false}))} style={{padding:"10px 14px",background:bookForm.isConv?T.goldSoft:"rgba(0,0,0,.02)",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:20,height:20,borderRadius:5,border:`2px solid ${bookForm.isConv?T.gold:T.darkSoft}`,background:bookForm.isConv?T.gold:"transparent",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12,transition:"all .15s"}}>{bookForm.isConv?"✓":""}</div>
+            <div style={{width:20,height:20,borderRadius:5,border:`2px solid ${bookForm.isConv?T.gold:T.darkSoft}`,background:bookForm.isConv?T.gold:"transparent",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12}}>{bookForm.isConv?"✓":""}</div>
             <span style={{fontSize:13,fontWeight:600,color:bookForm.isConv?T.gold:T.dark}}>🤝 Struttura Convenzionata</span>
             <span style={{fontSize:11,color:T.darkSoft,marginLeft:4}}>prezzo manuale</span>
           </div>
           {bookForm.isConv&&<div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:10}}>
-            <div><label style={labelSt}>Nome struttura</label><input value={bookForm.convName||""} onChange={e=>setBookForm(p=>({...p,convName:e.target.value}))} placeholder="Es. Hotel Sole, Stabilimento X..." style={inputSt}/></div>
+            <div><label style={labelSt}>Nome struttura</label><input value={bookForm.convName||""} onChange={e=>setBookForm(p=>({...p,convName:e.target.value}))} placeholder="Es. Hotel Sole..." style={inputSt}/></div>
             <div><label style={labelSt}>Prezzo totale accordato €</label>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:20,fontWeight:700,color:T.darkSoft}}>€</span>
+                <span style={{fontSize:18,fontWeight:700,color:T.darkSoft}}>€</span>
                 <input type="number" min="0" step="1" value={bookForm.convPrice||""} onChange={e=>setBookForm(p=>({...p,convPrice:+e.target.value||0}))} placeholder="0" style={{...inputSt,fontSize:22,fontFamily:fontD,fontWeight:700,textAlign:"center",flex:1}}/>
-                <button onClick={()=>setBookForm(p=>({...p,showCalc:true}))} style={{...btnS(T.gold),padding:"10px 14px",fontSize:18,flexShrink:0}} title="Apri calcolatrice">🧮</button>
+                <button onClick={()=>setBookForm(p=>({...p,showCalc:true}))} style={{...btnS(T.gold),padding:"10px 14px",fontSize:18,flexShrink:0}}>🧮</button>
               </div>
             </div>
           </div>}
         </div>
 
         {/* Totale */}
-        <div style={{background:T.goldSoft,borderRadius:12,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{display:"flex",flexDirection:"column",gap:2}}>
-            {bookForm.isConv?<div style={{fontSize:11,color:T.gold,fontWeight:600}}>🤝 {bookForm.convName||"Convenzionata"} — prezzo accordato</div>
-            :(()=>{const sp=est.seasonPricing?.find(s=>bookForm.from>=s.from&&bookForm.from<=s.to);const base=sp&&sp[modal.cell.type]!=null?sp[modal.cell.type]:(est.pricing[modal.cell.type]||0);
-              const extras=bookForm.extras||{};
-              const eTotal=(extras.lettino||0)*(est.pricing.sunbed||10)+(extras.sdraio||0)*(est.pricing.sdraio||6)+(extras.sedia_regista||0)*(est.pricing.sedia_regista||5);
-              return(<>
-                {bookForm.isHalfDay&&est.halfDay?.enabled?<div style={{fontSize:11,color:T.darkSoft}}>€{est.halfDay[modal.cell.type]??Math.round(base*.6)}/gg mezza giornata{sp?` · ${sp.name}`:""}</div>
-                :<div style={{fontSize:11,color:T.darkSoft}}>€{base}/gg ombrellone{sp?` · ${sp.name}`:""}</div>}
-                {eTotal>0&&<div style={{fontSize:11,color:T.darkSoft}}>+ €{eTotal}/gg extra ({[["🛏️",extras.lettino],["🪑",extras.sdraio],["🎬",extras.sedia_regista]].filter(([,n])=>n>0).map(([i,n])=>`${n}${i}`).join(" ")})</div>}
-              </>);
-            })()}
-          </div>
-          <span style={{fontFamily:fontD,fontSize:28,color:T.dark}}>€{calcPrice(modal.cell.type,bookForm.days,bookForm.from,bookForm.isHalfDay,bookForm.extras||{},bookForm.isConv,bookForm.convPrice)}</span>
+        <div style={{background:T.goldSoft,borderRadius:12,padding:"14px 16px",border:`1px solid rgba(201,150,58,.25)`}}>
+          {(()=>{
+            const extras=bookForm.extras||{};
+            const extrasPerDay=(extras.lettino||0)*(est.pricing.sunbed||10)+(extras.sdraio||0)*(est.pricing.sdraio||6)+(extras.sedia_regista||0)*(est.pricing.sedia_regista||5);
+            const extrasTot=extrasPerDay*bookForm.days;
+            if(bookForm.sub==="stagionale"){
+              const stagBase=bookForm.stagPrezzo||0;
+              const grandTotal=stagBase+extrasTot;
+              return(<div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:12,color:T.gold,fontWeight:600}}>⭐ Ombrellone stagionale ({bookForm.days} notti)</span>
+                  <span style={{fontFamily:fontD,fontSize:18,color:T.gold}}>€{stagBase}</span>
+                </div>
+                {extrasPerDay>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:12,color:T.darkSoft}}>Extra dotazioni (€{extrasPerDay}/gg × {bookForm.days}gg)</span>
+                  <span style={{fontFamily:fontD,fontSize:18,color:T.accent}}>€{extrasTot}</span>
+                </div>}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid rgba(201,150,58,.25)`,paddingTop:8,marginTop:2}}>
+                  <span style={{fontSize:13,fontWeight:700,color:T.dark}}>Totale stagione</span>
+                  <span style={{fontFamily:fontD,fontSize:30,color:T.dark,fontWeight:700}}>€{grandTotal}</span>
+                </div>
+              </div>);
+            }
+            if(bookForm.isConv){
+              return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:12,color:T.gold,fontWeight:600}}>🤝 {bookForm.convName||"Convenzionata"}</span>
+                <span style={{fontFamily:fontD,fontSize:30,color:T.dark}}>€{bookForm.convPrice||0}</span>
+              </div>);
+            }
+            const sp=est.seasonPricing?.find(s=>bookForm.from>=s.from&&bookForm.from<=s.to);
+            const base=sp&&sp[modal.cell.type]!=null?sp[modal.cell.type]:(est.pricing[modal.cell.type]||0);
+            const mainP=bookForm.isHalfDay&&est.halfDay?.enabled?(est.halfDay[modal.cell.type]??Math.round(base*.6)):base;
+            const mainTot=mainP*bookForm.days;
+            return(<div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:11,color:T.darkSoft}}>€{mainP}/gg × {bookForm.days} notti{sp?` · ${sp.name}`:""}</span>
+                <span style={{fontFamily:fontD,fontSize:18,color:T.dark}}>€{mainTot}</span>
+              </div>
+              {extrasPerDay>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:11,color:T.darkSoft}}>Extra €{extrasPerDay}/gg × {bookForm.days}</span>
+                <span style={{fontFamily:fontD,fontSize:18,color:T.accent}}>€{extrasTot}</span>
+              </div>}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid rgba(201,150,58,.2)`,paddingTop:6,marginTop:2}}>
+                <span style={{fontSize:12,fontWeight:600,color:T.dark}}>Totale</span>
+                <span style={{fontFamily:fontD,fontSize:30,color:T.dark}}>€{mainTot+extrasTot}</span>
+              </div>
+            </div>);
+          })()}
         </div>
-        <div style={{display:"flex",gap:10}}><button onClick={()=>setModal(null)} style={{flex:1,padding:"12px",borderRadius:12,border:`1px solid ${T.darkSoft}`,background:"transparent",color:T.darkSoft,cursor:"pointer",fontSize:14,fontFamily:font}}>Annulla</button><button onClick={confirmBooking} style={{flex:1,...btnS(T.accent),justifyContent:"center",padding:"12px",opacity:bookForm.clientName.trim()?1:.5}}>Conferma</button></div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={()=>setModal(null)} style={{flex:1,padding:"12px",borderRadius:12,border:`1px solid ${T.darkSoft}`,background:"transparent",color:T.darkSoft,cursor:"pointer",fontSize:14,fontFamily:font}}>Annulla</button>
+          <button onClick={confirmBooking} style={{flex:1,...btnS(T.accent),justifyContent:"center",padding:"12px",opacity:bookForm.clientName.trim()?1:.5}}>Conferma</button>
+        </div>
       </div>
     </Modal>}
 
