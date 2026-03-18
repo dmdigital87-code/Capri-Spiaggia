@@ -108,8 +108,11 @@ const BeachMap=({grid,cabins,selectedDate,onBook,onBookCabin})=>{
       {cabins.map((row,r)=>(<div key={r} style={{display:"flex",justifyContent:"center",gap:3,marginBottom:3}}>
         {row.map((cell,c)=>{const bk=gB(cell,selectedDate);const booked=!!bk;const isH=hoverCab?.r===r&&hoverCab?.c===c;
           return(<div key={cell.id} onMouseEnter={()=>setHoverCab({r,c})} onMouseLeave={()=>setHoverCab(null)} onClick={()=>onBookCabin(r,c,cell,bk)}
-            style={{width:42,height:38,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:booked?"rgba(201,150,58,.12)":isH?"rgba(44,24,16,.06)":T.card,border:`1px solid ${booked?T.gold:T.border}`,borderRadius:5,cursor:"pointer",transition:"all .12s"}}>
-            <span style={{fontSize:12}}>🏠</span><span style={{fontSize:7,fontWeight:700,color:T.darkSoft}}>C{cell.num}</span>
+            style={{width:52,minHeight:46,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"3px 2px",background:booked?T.warnSoft:isH?"rgba(39,174,96,.1)":T.card,border:`1.5px solid ${booked?"rgba(231,76,60,.35)":isH?T.ok:T.border}`,borderRadius:6,cursor:"pointer",transition:"all .12s",position:"relative"}}>
+            <div style={{position:"absolute",top:-3,right:-3,width:8,height:8,borderRadius:"50%",background:booked?T.warn:T.ok,border:"1.5px solid white"}}/>
+            <span style={{fontSize:13}}>{booked?"🔴":"🏠"}</span>
+            <span style={{fontSize:7,fontWeight:700,color:T.darkSoft}}>C{cell.num}</span>
+            {booked&&<span style={{fontSize:6,color:T.warn,fontWeight:700,maxWidth:50,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.2}}>{bk.clientName}</span>}
           </div>);})}</div>))}
     </div>
   </div>);
@@ -990,12 +993,12 @@ function App(){
   };
 
   const handleLogin=()=>{const u=users.find(u=>u.pin===loginPin);if(u){setCurrentUser(u);setPage("beach");notify(`Benvenuto, ${u.name}!`);setLoginPin("");}else notify("PIN errato!","err");};
-  const onBook=(r,c,cell,bk)=>{if(bk)setModal({type:"details",r,c,cell,bk,src:"grid"});else{setBookForm({clientName:"",from:selectedDate,days:1,isHalfDay:false,extras:{lettino:0,sdraio:0,sedia_regista:0},isConv:false,convName:"",convPrice:0});setModal({type:"book",r,c,cell,src:"grid"});}};
-  const onBookCabin=(r,c,cell,bk)=>{if(bk)setModal({type:"details",r,c,cell,bk,src:"cabin"});else{setBookForm({clientName:"",from:selectedDate,days:1,isHalfDay:false,extras:{lettino:0,sdraio:0,sedia_regista:0},isConv:false,convName:"",convPrice:0});setModal({type:"book",r,c,cell,src:"cabin"});}};
-  const confirmBooking=()=>{if(!bookForm.clientName.trim())return;const{r,c,cell,src}=modal;const to=addDays(bookForm.from,bookForm.days-1);const total=calcPrice(cell.type,bookForm.days,bookForm.from,bookForm.isHalfDay,bookForm.extras||{},bookForm.isConv,bookForm.convPrice);const nb={id:uid(),clientName:bookForm.clientName,from:bookForm.from,to,days:bookForm.days,isHalfDay:bookForm.isHalfDay,extras:bookForm.extras||{},isConv:bookForm.isConv||false,convName:bookForm.convName||"",total};
+  const onBook=(r,c,cell,bk)=>{if(bk)setModal({type:"details",r,c,cell,bk,src:"grid"});else{setBookForm({clientName:"",from:selectedDate,days:1,isHalfDay:false,extras:{lettino:0,sdraio:0,sedia_regista:0},isConv:false,convName:"",convPrice:0,sub:null});setModal({type:"book",r,c,cell,src:"grid"});}};
+  const onBookCabin=(r,c,cell,bk)=>{if(bk)setModal({type:"details",r,c,cell,bk,src:"cabin"});else{setBookForm({clientName:"",from:selectedDate,days:1,isHalfDay:false,extras:{lettino:0,sdraio:0,sedia_regista:0},isConv:false,convName:"",convPrice:0,sub:null});setModal({type:"book",r,c,cell,src:"cabin"});}};
+  const confirmBooking=()=>{if(!bookForm.clientName.trim())return;const{r,c,cell,src}=modal;const to=addDays(bookForm.from,bookForm.days-1);const total=calcPrice(cell.type,bookForm.days,bookForm.from,bookForm.isHalfDay,bookForm.extras||{},bookForm.isConv,bookForm.convPrice);const nb={id:uid(),clientName:bookForm.clientName,from:bookForm.from,to,days:bookForm.days,isHalfDay:bookForm.isHalfDay,extras:bookForm.extras||{},isConv:bookForm.isConv||false,convName:bookForm.convName||"",sub:bookForm.sub||null,total};
     if(src==="grid")setGrid(g=>g.map((row,ri)=>row.map((cl,ci)=>ri===r&&ci===c?{...cl,bookings:[...cl.bookings,nb]}:cl)));
     else setCabins(g=>g.map((row,ri)=>row.map((cl,ci)=>ri===r&&ci===c?{...cl,bookings:[...cl.bookings,nb]}:cl)));
-    if(!clients.find(cl=>cl.name.toLowerCase()===bookForm.clientName.toLowerCase()))setClients(p=>[...p,{id:uid(),name:bookForm.clientName,phone:"",email:"",notes:"",sub:null,created:today()}]);
+    const existingCl=clients.find(cl=>cl.name.toLowerCase()===bookForm.clientName.toLowerCase());if(!existingCl)setClients(p=>[...p,{id:uid(),name:bookForm.clientName,phone:"",email:"",notes:"",sub:bookForm.sub||null,created:today()}]);else if(bookForm.sub&&!existingCl.sub)setClients(p=>p.map(cl=>cl.name.toLowerCase()===bookForm.clientName.toLowerCase()?{...cl,sub:bookForm.sub}:cl));
     setModal(null);notify(`Prenotato per ${bookForm.clientName}!`);};
   const freeBk=()=>{const{r,c,bk,src}=modal;
     if(src==="grid")setGrid(g=>g.map((row,ri)=>row.map((cl,ci)=>ri===r&&ci===c?{...cl,bookings:cl.bookings.filter(b=>b.id!==bk.id)}:cl)));
@@ -1166,6 +1169,16 @@ function App(){
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         {/* Cliente + date */}
         <div><label style={labelSt}>Cliente</label><input list="cl-list" value={bookForm.clientName} onChange={e=>setBookForm(p=>({...p,clientName:e.target.value}))} placeholder="Nome" style={inputSt}/><datalist id="cl-list">{clients.map(cl=><option key={cl.id} value={cl.name}/>)}</datalist></div>
+        <div>
+          <label style={labelSt}>Tipo abbonamento</label>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {[null,"giornaliero","settimanale","mensile","stagionale"].map(s=>(
+              <button key={s||"n"} onClick={()=>setBookForm(p=>({...p,sub:s}))} style={{padding:"5px 10px",borderRadius:7,fontSize:11,fontFamily:font,cursor:"pointer",border:bookForm.sub===s?`2px solid ${s==="stagionale"?T.gold:T.accent}`:`1px solid ${T.border}`,background:bookForm.sub===s?s==="stagionale"?T.goldSoft:"rgba(226,97,59,.08)":T.white,color:T.dark,fontWeight:bookForm.sub===s?700:400}}>
+                {s==="stagionale"?"⭐ Stagionale":s||"Nessuno"}
+              </button>
+            ))}
+          </div>
+        </div>
         <div style={{display:"flex",gap:10}}>
           <div style={{flex:1}}><label style={labelSt}>Dal</label><input type="date" value={bookForm.from} onChange={e=>setBookForm(p=>({...p,from:e.target.value}))} style={inputSt}/></div>
           <div style={{flex:1}}><label style={labelSt}>Giorni</label><input type="number" min="1" max="90" value={bookForm.days} onChange={e=>setBookForm(p=>({...p,days:+e.target.value||1}))} style={inputSt}/></div>
