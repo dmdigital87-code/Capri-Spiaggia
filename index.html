@@ -42,12 +42,16 @@ const cardS={background:T.card,borderRadius:16,border:`1px solid ${T.border}`,bo
 const inputSt={width:"100%",padding:"10px 14px",borderRadius:10,border:`1.5px solid ${T.sandDark}`,fontSize:14,fontFamily:font,background:T.white,color:T.dark,outline:"none"};
 const labelSt={display:"block",fontSize:11,color:T.darkSoft,marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:.8,fontFamily:font};
 
-/* ─── BUILD GRID ─── */
-const buildBeachGrid=()=>{const rows=[];let n=1;
-  for(let f=1;f<=3;f++){const row=[];for(let c=0;c<5;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});row.push({id:uid(),type:"walkway",num:null,bookings:[],fila:f,label:`${f}ª FILA`});for(let c=0;c<5;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});rows.push(row);}
-  for(let f=4;f<=17;f++){const row=[];for(let c=0;c<4;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});row.push({id:uid(),type:"empty",num:null,bookings:[],fila:f});row.push({id:uid(),type:"walkway",num:null,bookings:[],fila:f,label:`${f}ª FILA`});row.push({id:uid(),type:"empty",num:null,bookings:[],fila:f});for(let c=0;c<4;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});rows.push(row);}
+/* ─── BUILD GRID (configurable) ─── */
+const buildBeachGridCfg=(frontRows=3,frontPerSide=5,backRows=14,backPerSide=4)=>{const rows=[];let n=1;
+  for(let f=1;f<=frontRows;f++){const row=[];for(let c=0;c<frontPerSide;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});row.push({id:uid(),type:"walkway",num:null,bookings:[],fila:f,label:`${f}ª FILA`});for(let c=0;c<frontPerSide;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});rows.push(row);}
+  for(let f=frontRows+1;f<=frontRows+backRows;f++){const row=[];for(let c=0;c<backPerSide;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});row.push({id:uid(),type:"empty",num:null,bookings:[],fila:f});row.push({id:uid(),type:"walkway",num:null,bookings:[],fila:f,label:`${f}ª FILA`});row.push({id:uid(),type:"empty",num:null,bookings:[],fila:f});for(let c=0;c<backPerSide;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});rows.push(row);}
+  /* Inverti la numerazione: il numero più alto vicino al mare, il più basso in fondo */
+  const total=n-1;rows.forEach(row=>row.forEach(cell=>{if(cell.type==="umbrella")cell.num=total+1-cell.num;}));
   return rows;};
-const buildCabinRows=()=>{const rows=[];let n=1;for(let r=0;r<2;r++){const row=[];for(let c=0;c<15;c++)row.push({id:uid(),type:"cabana",num:n++,bookings:[]});rows.push(row);}return rows;};
+const buildCabinRowsCfg=(cabinRows=2,cabinsPerRow=15)=>{const rows=[];let n=1;for(let r=0;r<cabinRows;r++){const row=[];for(let c=0;c<cabinsPerRow;c++)row.push({id:uid(),type:"cabana",num:n++,bookings:[]});rows.push(row);}return rows;};
+const buildBeachGrid=()=>buildBeachGridCfg(3,5,14,4);
+const buildCabinRows=()=>buildCabinRowsCfg(2,15);
 
 /* ── MODIFICATO: halfDay ora usa prezzi manuali invece della percentuale ── */
 const defaultData=()=>({name:"Bagno Capri",grid:buildBeachGrid(),cabins:buildCabinRows(),pricing:{umbrella:25,sunbed:10,cabana:40,sdraio:6,sedia_regista:5},halfDay:{enabled:true,startTime:"13:00",umbrella:15,sunbed:6,cabana:24},seasonPricing:[{id:uid(),name:"Bassa stagione",from:"2026-04-01",to:"2026-06-14",umbrella:18,sunbed:7,cabana:30},{id:uid(),name:"Alta stagione",from:"2026-07-15",to:"2026-08-31",umbrella:35,sunbed:15,cabana:55}]});
@@ -75,7 +79,7 @@ const MiniBarChart=({data,labelKey,bars,height=180})=>{
 /* ─── COMPONENTS ─── */
 const Modal=({children,onClose,wide})=>(<div onClick={onClose} style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,animation:"fadeIn .25s"}}><div onClick={e=>e.stopPropagation()} style={{background:T.white,borderRadius:20,padding:"28px 32px",width:wide?600:420,maxWidth:"94vw",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(0,0,0,.3)",animation:"pop .3s",position:"relative"}}><button onClick={onClose} style={{position:"absolute",top:12,right:12,background:"none",border:"none",fontSize:18,cursor:"pointer",color:T.darkSoft}}>✕</button>{children}</div></div>);
 const Notify=({n})=>n?<div style={{position:"fixed",top:16,right:16,padding:"12px 22px",borderRadius:12,background:n.t==="ok"?T.ok:n.t==="err"?T.warn:T.sea,color:"#fff",fontWeight:600,fontSize:13,zIndex:2000,animation:"slideUp .3s",boxShadow:"0 8px 24px rgba(0,0,0,.15)",fontFamily:font}}>{n.m}</div>:null;
-const Stat=({label,value,color,icon})=>(<div style={{...cardS,textAlign:"center",padding:"16px 10px",flex:1,minWidth:110}}><div style={{fontSize:11,marginBottom:2}}>{icon}</div><div style={{fontFamily:fontD,fontSize:26,color,fontWeight:700}}>{value}</div><div style={{fontSize:10,color:T.darkSoft,marginTop:3,textTransform:"uppercase",letterSpacing:.5}}>{label}</div></div>);
+const Stat=({label,value,color,icon,onClick})=>(<div onClick={onClick} style={{...cardS,textAlign:"center",padding:"16px 10px",flex:1,minWidth:110,cursor:onClick?"pointer":"default",transition:"all .15s",border:onClick?`1.5px solid ${T.border}`:`1px solid ${T.border}`}} onMouseEnter={e=>{if(onClick)e.currentTarget.style.transform="scale(1.03)";}} onMouseLeave={e=>{if(onClick)e.currentTarget.style.transform="scale(1)";}}><div style={{fontSize:11,marginBottom:2}}>{icon}</div><div style={{fontFamily:fontD,fontSize:26,color,fontWeight:700}}>{value}</div><div style={{fontSize:10,color:T.darkSoft,marginTop:3,textTransform:"uppercase",letterSpacing:.5}}>{label}{onClick&&" ▸"}</div></div>);
 const NAV=[{id:"beach",icon:"🏖️",lbl:"Spiaggia"},{id:"calendar",icon:"📅",lbl:"Calendario"},{id:"clients",icon:"👥",lbl:"Clienti"},{id:"inventory",icon:"📦",lbl:"Archivio"},{id:"dashboard",icon:"📊",lbl:"Dashboard"},{id:"admin",icon:"⚙️",lbl:"Admin"}];
 
 /* ─── BEACH MAP ─── */
@@ -360,14 +364,25 @@ const DashboardView=({grid,cabins,est})=>{
   allBk.forEach(b=>rev+=b.total);
   const weekD=useMemo(()=>getWeekDates(today()).map((d,i)=>{let o=0;grid.forEach(r=>r.forEach(c=>{if(c.type==="umbrella"&&c.bookings?.some(b=>d>=b.from&&d<=b.to))o++;}));return{day:DAYS_S[i],occupati:o,liberi:tU-o};}),[grid,tU]);
   return(<div style={{display:"flex",flexDirection:"column",gap:16}}>
-    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}><Stat icon="🏖️" label="Ombrelloni" value={`${bU}/${tU}`} color={T.dark}/><Stat icon="🏠" label="Cabine" value={`${bC}/${tC}`} color={T.gold}/><Stat icon="✅" label="Liberi" value={tU-bU+tC-bC} color={T.ok}/><Stat icon="💰" label="Incasso" value={`€${rev}`} color={T.accent}/><Stat icon="📋" label="Prenotazioni" value={allBk.length} color={T.sea}/></div>
+    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}><Stat icon="🏖️" label="Ombrelloni" value={`${bU}/${tU}`} color={T.dark}/><Stat icon="🏠" label="Cabine" value={`${bC}/${tC}`} color={T.gold}/><Stat icon="💰" label="Incasso" value={`€${rev}`} color={T.accent}/><Stat icon="📋" label="Prenotazioni" value={allBk.length} color={T.sea}/></div>
     <div style={cardS}><h4 style={{fontFamily:fontD,fontSize:16,color:T.dark,marginBottom:12}}>📊 Occupazione settimanale</h4><MiniBarChart data={weekD} labelKey="day" bars={[{key:"occupati",color:T.accent},{key:"liberi",color:T.ok}]}/></div>
   </div>);
 };
 
 /* ─── ADMIN ─── */
-const AdminPanel=({est,setEst,users,setUsers,currentUser})=>{
+const AdminPanel=({est,setEst,users,setUsers,currentUser,setEstRaw})=>{
   const[tab,setTab]=useState("pricing");const[showUF,setShowUF]=useState(false);const[uf,setUf]=useState({name:"",email:"",role:"operator",pin:""});const[editU,setEditU]=useState(null);
+  /* ── Calcolatrice stagionali (moved out of IIFE to fix hooks) ── */
+  const[calcDisp,setCalcDisp]=useState("0");const[calcFirst,setCalcFirst]=useState(null);const[calcOp,setCalcOp]=useState(null);const[calcNext,setCalcNext]=useState(false);
+  const calcPress=(v)=>{
+    if(v==="C"){setCalcDisp("0");setCalcFirst(null);setCalcOp(null);setCalcNext(false);}
+    else if(v==="="){if(calcOp&&calcFirst!==null){const a=parseFloat(calcFirst),b=parseFloat(calcDisp);const r=calcOp==="+"?a+b:calcOp==="-"?a-b:calcOp==="×"?a*b:calcOp==="÷"&&b!==0?Math.round((a/b)*100)/100:0;setCalcDisp(String(r));setCalcFirst(null);setCalcOp(null);setCalcNext(true);}}
+    else if(["+","-","×","÷"].includes(v)){setCalcFirst(calcDisp);setCalcOp(v);setCalcNext(true);}
+    else{if(calcNext||calcDisp==="0"){setCalcDisp(v==="."?"0.":v);setCalcNext(false);}else{setCalcDisp(calcDisp.length<12?calcDisp+v:calcDisp);}}
+  };
+  const calcKeys=["C","÷","×","-","7","8","9","+","4","5","6","=","1","2","3","0","."];
+  /* ── Beach config state ── */
+  const[beachCfg,setBeachCfg]=useState(()=>({frontRows:est.beachConfig?.frontRows||3,frontPerSide:est.beachConfig?.frontPerSide||5,backRows:est.beachConfig?.backRows||14,backPerSide:est.beachConfig?.backPerSide||4,cabinRows:est.beachConfig?.cabinRows||2,cabinsPerRow:est.beachConfig?.cabinsPerRow||15}));
   const saveU=()=>{if(!uf.name.trim()||!uf.pin)return;if(editU)setUsers(p=>p.map(u=>u.id===editU.id?{...u,...uf}:u));else setUsers(p=>[...p,{id:uid(),...uf}]);setShowUF(false);setEditU(null);};
   const exportCSV=()=>{const bks=[];est.grid.forEach(r=>r.forEach(c=>c.bookings?.forEach(b=>bks.push({...b,num:c.num,tipo:"Omb"}))));est.cabins.forEach(r=>r.forEach(c=>c.bookings?.forEach(b=>bks.push({...b,num:`C${c.num}`,tipo:"Cab"}))));const h="Cliente,Tipo,Numero,Dal,Al,Giorni,MezzaGiornata,Totale\n";const rows=bks.map(b=>`${b.clientName},${b.tipo},${b.num},${b.from},${b.to},${b.days},${b.isHalfDay?"Sì":"No"},${b.total}`).join("\n");const blob=new Blob([h+rows],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`report_${today()}.csv`;a.click();};
   const updateSeason=(id,field,val)=>setEst(p=>({...p,seasonPricing:p.seasonPricing.map(s=>s.id===id?{...s,[field]:["umbrella","sunbed","cabana"].includes(field)?parseInt(val)||0:val}:s)}));
@@ -377,7 +392,7 @@ const AdminPanel=({est,setEst,users,setUsers,currentUser})=>{
   /* ── MODIFICATO: aggiorna i prezzi manuali mezza giornata ── */
   const updateHalfDay=(field,val)=>setEst(p=>({...p,halfDay:{...p.halfDay,[field]:field==="enabled"?val:field==="startTime"?val:parseInt(val)||0}}));
 
-  const TABS=[{id:"pricing",lbl:"💰 Prezzi & Stagioni"},{id:"stagionali",lbl:"⭐ Stagionali"},{id:"halfday",lbl:"🕐 Mezza Giornata"},{id:"users",lbl:"👤 Utenti"},{id:"export",lbl:"📤 Esporta"}];
+  const TABS=[{id:"pricing",lbl:"💰 Prezzi & Stagioni"},{id:"stagionali",lbl:"⭐ Stagionali"},{id:"halfday",lbl:"🕐 Mezza Giornata"},{id:"beachconfig",lbl:"🏖️ Layout Spiaggia"},{id:"users",lbl:"👤 Utenti"},{id:"export",lbl:"📤 Esporta"}];
   const secStyle={...cardS,display:"flex",flexDirection:"column",gap:16};
   const rowStyle={display:"flex",gap:8,alignItems:"flex-start",padding:"14px",background:"rgba(0,0,0,.02)",borderRadius:10,flexWrap:"wrap"};
   const smallInput={...inputSt,padding:"8px 10px",fontSize:13};
@@ -417,17 +432,7 @@ const AdminPanel=({est,setEst,users,setUsers,currentUser})=>{
         {est.seasonPricing?.length===0&&<div style={{padding:16,textAlign:"center",color:T.darkSoft,fontSize:13,background:"rgba(0,0,0,.02)",borderRadius:10}}>Nessuna stagione configurata. Verranno usati i prezzi base.</div>}
       </div>}
 
-      {/* ══════ TAB MEZZA GIORNATA — PREZZI MANUALI ══════ */}
-      {tab==="stagionali"&&(()=>{
-        const[calcDisp,setCalcDisp]=useState("0");const[calcFirst,setCalcFirst]=useState(null);const[calcOp,setCalcOp]=useState(null);const[calcNext,setCalcNext]=useState(false);
-        const calcPress=(v)=>{
-          if(v==="C"){setCalcDisp("0");setCalcFirst(null);setCalcOp(null);setCalcNext(false);}
-          else if(v==="="){if(calcOp&&calcFirst!==null){const a=parseFloat(calcFirst),b=parseFloat(calcDisp);const r=calcOp==="+"?a+b:calcOp==="-"?a-b:calcOp==="×"?a*b:calcOp==="÷"&&b!==0?Math.round((a/b)*100)/100:0;setCalcDisp(String(r));setCalcFirst(null);setCalcOp(null);setCalcNext(true);}}
-          else if(["+","-","×","÷"].includes(v)){setCalcFirst(calcDisp);setCalcOp(v);setCalcNext(true);}
-          else{if(calcNext||calcDisp==="0"){setCalcDisp(v==="."?"0.":v);setCalcNext(false);}else{setCalcDisp(calcDisp.length<12?calcDisp+v:calcDisp);}}
-        };
-        const calcKeys=["C","÷","×","-","7","8","9","+","4","5","6","=","1","2","3","0","."];
-        return(<div style={secStyle}>
+      {tab==="stagionali"&&<div style={secStyle}>
           <h3 style={{fontFamily:fontD,fontSize:20,color:T.dark}}>⭐ Prezzi Stagionali</h3>
           <p style={{fontSize:12,color:T.darkSoft,marginTop:-8}}>Calcola e suggerisci i prezzi degli abbonamenti stagionali per ogni stagione configurata.</p>
 
@@ -442,7 +447,7 @@ const AdminPanel=({est,setEst,users,setUsers,currentUser})=>{
                 </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
-                {[["umbrella","🏖️","Ombrellone",[["sunbed","🛏️","Lettino"],[["sdraio","🪑","Sdraio"]],[["sedia_regista","🎬","S.Regista"]]]],["cabana","🏠","Cabina",[]]].map(([key,icon,lbl])=>{
+                {[["umbrella","🏖️","Ombrellone"],["cabana","🏠","Cabina"]].map(([key,icon,lbl])=>{
                   const baseDaily=sp[key]||est.pricing[key]||0;
                   const stagBase=baseDaily*days;
                   return(<div key={key} style={{background:T.card,borderRadius:10,padding:"10px 12px",border:`1px solid ${T.border}`}}>
@@ -498,8 +503,7 @@ const AdminPanel=({est,setEst,users,setUsers,currentUser})=>{
               </div>
             </div>
           </div>
-        </div>);
-      })()}
+        </div>}
 
             {tab==="halfday"&&<div style={secStyle}>
         <h3 style={{fontFamily:fontD,fontSize:20,color:T.dark}}>🕐 Mezza Giornata</h3>
@@ -574,7 +578,53 @@ const AdminPanel=({est,setEst,users,setUsers,currentUser})=>{
         </>}
       </div>}
 
+      {/* ══════ TAB CONFIGURAZIONE SPIAGGIA ══════ */}
+      {tab==="beachconfig"&&<div style={secStyle}>
+        <h3 style={{fontFamily:fontD,fontSize:20,color:T.dark}}>🏖️ Configurazione Layout Spiaggia</h3>
+        <p style={{fontSize:12,color:T.darkSoft,marginTop:-8}}>Modifica il numero di file e ombrelloni. La mappa verrà rigenerata (le prenotazioni verranno mantenute dove possibile).</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
+          <div style={{background:"rgba(14,124,140,.05)",borderRadius:12,padding:"14px 16px",border:`1px solid rgba(14,124,140,.15)`}}>
+            <div style={{fontSize:13,fontWeight:700,color:T.sea,marginBottom:12}}>🔵 Prime file (vicino al mare)</div>
+            <div style={{display:"flex",gap:10}}>
+              <div style={{flex:1}}><label style={labelSt}>N° file</label><input type="number" min="0" max="10" value={beachCfg.frontRows} onChange={e=>setBeachCfg(p=>({...p,frontRows:Math.max(0,Math.min(10,+e.target.value||0))}))} style={{...inputSt,textAlign:"center",fontSize:18,fontFamily:fontD}}/></div>
+              <div style={{flex:1}}><label style={labelSt}>Omb. per lato</label><input type="number" min="1" max="10" value={beachCfg.frontPerSide} onChange={e=>setBeachCfg(p=>({...p,frontPerSide:Math.max(1,Math.min(10,+e.target.value||1))}))} style={{...inputSt,textAlign:"center",fontSize:18,fontFamily:fontD}}/></div>
+            </div>
+            <div style={{fontSize:11,color:T.darkSoft,marginTop:6}}>Subtotale: {beachCfg.frontRows*beachCfg.frontPerSide*2} ombrelloni</div>
+          </div>
+          <div style={{background:"rgba(226,97,59,.05)",borderRadius:12,padding:"14px 16px",border:`1px solid rgba(226,97,59,.15)`}}>
+            <div style={{fontSize:13,fontWeight:700,color:T.accent,marginBottom:12}}>🔴 File successive</div>
+            <div style={{display:"flex",gap:10}}>
+              <div style={{flex:1}}><label style={labelSt}>N° file</label><input type="number" min="0" max="30" value={beachCfg.backRows} onChange={e=>setBeachCfg(p=>({...p,backRows:Math.max(0,Math.min(30,+e.target.value||0))}))} style={{...inputSt,textAlign:"center",fontSize:18,fontFamily:fontD}}/></div>
+              <div style={{flex:1}}><label style={labelSt}>Omb. per lato</label><input type="number" min="1" max="10" value={beachCfg.backPerSide} onChange={e=>setBeachCfg(p=>({...p,backPerSide:Math.max(1,Math.min(10,+e.target.value||1))}))} style={{...inputSt,textAlign:"center",fontSize:18,fontFamily:fontD}}/></div>
+            </div>
+            <div style={{fontSize:11,color:T.darkSoft,marginTop:6}}>Subtotale: {beachCfg.backRows*beachCfg.backPerSide*2} ombrelloni</div>
+          </div>
+        </div>
+        <div style={{background:"rgba(201,150,58,.06)",borderRadius:12,padding:"14px 16px",border:`1px solid rgba(201,150,58,.2)`}}>
+          <div style={{fontSize:13,fontWeight:700,color:T.gold,marginBottom:12}}>🏠 Cabine</div>
+          <div style={{display:"flex",gap:10}}>
+            <div style={{flex:1}}><label style={labelSt}>N° file cabine</label><input type="number" min="1" max="5" value={beachCfg.cabinRows} onChange={e=>setBeachCfg(p=>({...p,cabinRows:Math.max(1,Math.min(5,+e.target.value||1))}))} style={{...inputSt,textAlign:"center",fontSize:18,fontFamily:fontD}}/></div>
+            <div style={{flex:1}}><label style={labelSt}>Cabine per fila</label><input type="number" min="1" max="30" value={beachCfg.cabinsPerRow} onChange={e=>setBeachCfg(p=>({...p,cabinsPerRow:Math.max(1,Math.min(30,+e.target.value||1))}))} style={{...inputSt,textAlign:"center",fontSize:18,fontFamily:fontD}}/></div>
+          </div>
+          <div style={{fontSize:11,color:T.darkSoft,marginTop:6}}>Totale cabine: {beachCfg.cabinRows*beachCfg.cabinsPerRow}</div>
+        </div>
+        {/* Riepilogo */}
+        <div style={{padding:14,background:"rgba(0,0,0,.03)",borderRadius:12,display:"flex",justifyContent:"space-around",textAlign:"center"}}>
+          <div><div style={{fontFamily:fontD,fontSize:28,color:T.dark,fontWeight:700}}>{beachCfg.frontRows*beachCfg.frontPerSide*2+beachCfg.backRows*beachCfg.backPerSide*2}</div><div style={{fontSize:10,color:T.darkSoft,textTransform:"uppercase"}}>Ombrelloni</div></div>
+          <div><div style={{fontFamily:fontD,fontSize:28,color:T.gold,fontWeight:700}}>{beachCfg.cabinRows*beachCfg.cabinsPerRow}</div><div style={{fontSize:10,color:T.darkSoft,textTransform:"uppercase"}}>Cabine</div></div>
+          <div><div style={{fontFamily:fontD,fontSize:28,color:T.sea,fontWeight:700}}>{beachCfg.frontRows+beachCfg.backRows}</div><div style={{fontSize:10,color:T.darkSoft,textTransform:"uppercase"}}>File totali</div></div>
+        </div>
+        <button onClick={()=>{
+          if(!window.confirm(`Ricostruire la spiaggia con ${beachCfg.frontRows*beachCfg.frontPerSide*2+beachCfg.backRows*beachCfg.backPerSide*2} ombrelloni e ${beachCfg.cabinRows*beachCfg.cabinsPerRow} cabine?\n\nATTENZIONE: le prenotazioni esistenti verranno rimosse.`))return;
+          const newGrid=buildBeachGridCfg(beachCfg.frontRows,beachCfg.frontPerSide,beachCfg.backRows,beachCfg.backPerSide);
+          const newCabins=buildCabinRowsCfg(beachCfg.cabinRows,beachCfg.cabinsPerRow);
+          setEst(p=>({...p,grid:newGrid,cabins:newCabins,beachConfig:beachCfg}));
+        }} style={{...btnS(T.accent),justifyContent:"center",padding:"14px",fontSize:14}}>♻️ Ricostruisci spiaggia con questa configurazione</button>
+        <div style={{fontSize:10,color:T.darkSoft,textAlign:"center"}}>💡 Puoi anche chiedere all'assistente AI di modificare il layout tramite la chat</div>
+      </div>}
+
       {tab==="users"&&<div style={{...cardS,display:"flex",flexDirection:"column",gap:12}}>
+
         <div style={{display:"flex",justifyContent:"space-between"}}><h3 style={{fontFamily:fontD,fontSize:20,color:T.dark}}>Utenti</h3>{currentUser?.role==="owner"&&<button onClick={()=>{setEditU(null);setUf({name:"",email:"",role:"operator",pin:""});setShowUF(true);}} style={btnS(T.accent)}>+ Aggiungi</button>}</div>
         {users.map(u=><div key={u.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(0,0,0,.02)",borderRadius:8}}><div><span style={{fontWeight:600,fontSize:13}}>{u.name}</span><span style={{fontSize:11,color:T.darkSoft,marginLeft:8}}>{u.email}</span></div><span style={{fontSize:9,padding:"2px 7px",borderRadius:5,background:u.role==="owner"?T.goldSoft:"rgba(0,0,0,.04)",color:u.role==="owner"?T.gold:T.darkSoft,fontWeight:600}}>{ROLES[u.role]}</span></div>)}
         {showUF&&<Modal onClose={()=>setShowUF(false)}><h3 style={{fontFamily:fontD,fontSize:20,marginBottom:14}}>{editU?"Modifica":"Nuovo"} utente</h3><div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -670,7 +720,7 @@ const SUGGESTED_QUESTIONS=[
   "Come esporto le prenotazioni?",
   "Come aggiungo un nuovo cliente?",
   "Come funziona la mezza giornata?",
-  "Come creo un nuovo utente staff?",
+  "Come modifico il layout della spiaggia?",
 ];
 
 const AIAssistant=({est,clients,currentUser})=>{
@@ -717,12 +767,20 @@ Sii conciso ma completo. Se non sai qualcosa, dillo chiaramente.
 ${est.seasonPricing?.map(s=>`- ${s.name}: ${s.from} → ${s.to} | Omb.€${s.umbrella} Lett.€${s.sunbed} Cab.€${s.cabana}`).join("\n")||"Nessuna stagione configurata"}
 
 === GUIDA ALL'APP ===
-L'app ha 5 sezioni:
-1. **Spiaggia** — Mappa interattiva con tutti gli ombrelloni e le cabine. Clicca su uno per prenotare o vedere i dettagli. Gli ombrelloni verdi sono liberi, rossi occupati. Si può filtrare per data.
+L'app ha 6 sezioni:
+1. **Spiaggia** — Mappa interattiva con tutti gli ombrelloni e le cabine. Clicca su uno per prenotare o vedere i dettagli. Gli ombrelloni verdi sono liberi, rossi occupati. Si può filtrare per data. La numerazione parte dal numero 1 in fondo alla spiaggia e sale verso il mare (i numeri più alti sono vicini al mare).
 2. **Calendario** — Vista settimanale o mensile con occupazione giornaliera. Mostra le prenotazioni attive per ogni giorno.
 3. **Clienti** — Anagrafica clienti con ricerca, aggiunta, modifica ed eliminazione. Mostra l'importo speso da ogni cliente.
 4. **Dashboard** — Statistiche riassuntive: occupazione, incasso, grafico settimanale.
-5. **Admin** (solo staff loggato) — Configurazione prezzi, stagioni, mezza giornata, utenti staff, esportazione CSV.
+5. **Admin** (solo staff loggato) — Configurazione prezzi, stagioni, mezza giornata, layout spiaggia, utenti staff, esportazione CSV.
+
+=== CONFIGURAZIONE SPIAGGIA ===
+La spiaggia è configurabile da Admin → Layout Spiaggia. Si possono modificare:
+- Numero di file prime (vicine al mare) e ombrelloni per lato
+- Numero di file successive e ombrelloni per lato
+- Numero di file cabine e cabine per fila
+Configurazione attuale: ${JSON.stringify(est.beachConfig||{frontRows:3,frontPerSide:5,backRows:14,backPerSide:4,cabinRows:2,cabinsPerRow:15})}
+Quando l'utente chiede di modificare il layout della spiaggia (numero ombrelloni, file, cabine), spiega che può farlo da Admin → Layout Spiaggia.
 
 === OPERAZIONI COMUNI ===
 - **Prenotare**: Spiaggia → clicca ombrellone verde → inserisci cliente, data, giorni → Conferma
@@ -730,6 +788,7 @@ L'app ha 5 sezioni:
 - **Cambiare prezzi**: Admin → Prezzi & Stagioni
 - **Aggiungere stagione**: Admin → Prezzi & Stagioni → "+ Aggiungi stagione"
 - **Mezza giornata**: Admin → Mezza Giornata → attiva toggle e imposta prezzi manuali
+- **Modificare la spiaggia**: Admin → Layout Spiaggia → modifica file/ombrelloni/cabine → Ricostruisci
 - **Nuovo cliente**: Clienti → "+ Nuovo"
 - **Esporta CSV**: Admin → Esporta → Scarica CSV
 - **Aggiungere utente staff**: Admin → Utenti → "+ Aggiungi" (solo Proprietario)
@@ -930,6 +989,7 @@ function App(){
   const[inventory,setInventory]=useState(()=>saved?.inventory||{ombrelloni:[],lettini:[],sdraio:[],sedie_regista:[]});
   const[currentUser,setCurrentUser]=useState(null);const[page,setPage]=useState("beach");const[selectedDate,setSelectedDate]=useState(today());
   const[modal,setModal]=useState(null);const[notif,setNotif]=useState(null);const[loginPin,setLoginPin]=useState("");
+  const[occModal,setOccModal]=useState(null); /* {type:"umbrella"|"cabin"} */
   const[bookForm,setBookForm]=useState({clientName:"",from:today(),days:1,isHalfDay:false});
   const[saveStatus,setSaveStatus]=useState("saved");
   const[syncStatus,setSyncStatus]=useState("idle"); // idle | syncing | ok | error
@@ -1088,6 +1148,17 @@ function App(){
     return Math.round((mainPrice+extrasPerDay)*days);
   };
 
+  /* ── Occupancy data for modal ── */
+  const getOccupied=(type,date)=>{
+    const items=[];
+    if(type==="umbrella"){
+      est.grid.forEach((row,r)=>row.forEach((cell,c)=>{if(cell.type==="umbrella"){const bk=cell.bookings?.find(b=>date>=b.from&&date<=b.to);if(bk)items.push({num:cell.num,fila:cell.fila,client:bk.clientName,from:bk.from,to:bk.to,total:bk.total,isHalfDay:bk.isHalfDay,isConv:bk.isConv,convName:bk.convName,extras:bk.extras});}}));
+    } else {
+      est.cabins.forEach((row,r)=>row.forEach((cell,c)=>{const bk=cell.bookings?.find(b=>date>=b.from&&date<=b.to);if(bk)items.push({num:cell.num,client:bk.clientName,from:bk.from,to:bk.to,total:bk.total,isConv:bk.isConv,convName:bk.convName});}));
+    }
+    return items.sort((a,b)=>a.num-b.num);
+  };
+
   const handleLogin=()=>{const u=users.find(u=>u.pin===loginPin);if(u){setCurrentUser(u);setPage("beach");notify(`Benvenuto, ${u.name}!`);setLoginPin("");}else notify("PIN errato!","err");};
   const onBook=(r,c,cell,bk)=>{if(bk)setModal({type:"details",r,c,cell,bk,src:"grid"});else{setBookForm({clientName:"",from:selectedDate,to:addDays(selectedDate,0),days:1,isHalfDay:false,extras:{lettino:0,sdraio:0,sedia_regista:0},isConv:false,convName:"",convPrice:0,sub:null});setModal({type:"book",r,c,cell,src:"grid"});}};
   const onBookCabin=(r,c,cell,bk)=>{if(bk)setModal({type:"details",r,c,cell,bk,src:"cabin"});else{setBookForm({clientName:"",from:selectedDate,to:addDays(selectedDate,0),days:1,isHalfDay:false,extras:{lettino:0,sdraio:0,sedia_regista:0},isConv:false,convName:"",convPrice:0,sub:null});setModal({type:"book",r,c,cell,src:"cabin"});}};
@@ -1243,12 +1314,12 @@ function App(){
       {page==="beach"&&<div>
         <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
           {(()=>{let t=0,b=0,tc=0,bc=0,rev=0;est.grid.forEach(r=>r.forEach(c=>{if(c.type==="umbrella"){t++;if(c.bookings?.some(bk=>selectedDate>=bk.from&&selectedDate<=bk.to))b++;}}));est.cabins.forEach(r=>r.forEach(c=>{tc++;if(c.bookings?.some(bk=>selectedDate>=bk.from&&selectedDate<=bk.to))bc++;}));est.grid.forEach(r=>r.forEach(c=>c.bookings?.forEach(bk=>rev+=bk.total)));est.cabins.forEach(r=>r.forEach(c=>c.bookings?.forEach(bk=>rev+=bk.total)));
-            return[<Stat key="u" icon="🏖️" label="Ombrelloni" value={`${b}/${t}`} color={T.dark}/>,<Stat key="c" icon="🏠" label="Cabine" value={`${bc}/${tc}`} color={T.gold}/>,<Stat key="a" icon="✅" label="Liberi" value={t-b+tc-bc} color={T.ok}/>,<Stat key="r" icon="💰" label="Incasso" value={`€${rev}`} color={T.accent}/>];})()}
+            return[<Stat key="u" icon="🏖️" label="Ombrelloni" value={`${b}/${t}`} color={T.dark} onClick={()=>setOccModal({type:"umbrella"})}/>,<Stat key="c" icon="🏠" label="Cabine" value={`${bc}/${tc}`} color={T.gold} onClick={()=>setOccModal({type:"cabin"})}/>,<Stat key="r" icon="💰" label="Incasso" value={`€${rev}`} color={T.accent}/>];})()}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><label style={{...labelSt,marginBottom:0}}>Data:</label><input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} style={{...inputSt,width:170}}/><button onClick={()=>setSelectedDate(today())} style={{...btnS("rgba(0,0,0,.04)",T.dark),padding:"7px 12px",fontSize:11}}>Oggi</button></div>
         <div style={{display:"flex",flexWrap:"wrap",gap:12,padding:"8px 14px",background:"rgba(0,0,0,.02)",borderRadius:8,marginBottom:12,alignItems:"center"}}>
           {[{d:T.ok,l:"Disponibile"},{d:T.warn,l:"Prenotato"}].map((l,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:8,height:8,borderRadius:"50%",background:l.d}}/><span style={{fontSize:11,color:T.darkSoft}}>{l.l}</span></div>)}
-          <span style={{marginLeft:"auto",fontSize:10,color:"rgba(110,80,64,.3)"}}>142 ombrelloni · 30 cabine</span>
+          <span style={{marginLeft:"auto",fontSize:10,color:"rgba(110,80,64,.3)"}}>{(()=>{let u=0,c=0;est.grid.forEach(r=>r.forEach(cl=>{if(cl.type==="umbrella")u++;}));est.cabins.forEach(r=>r.forEach(()=>c++));return`${u} ombrelloni · ${c} cabine`;})()}</span>
         </div>
         <BeachMap grid={est.grid} cabins={est.cabins} selectedDate={selectedDate} onBook={onBook} onBookCabin={onBookCabin}/>
       </div>}
@@ -1256,7 +1327,7 @@ function App(){
       {page==="clients"&&<ClientsView clients={clients} setClients={setClients} convenzionate={convenzionate} setConvenzionate={setConvenzionate} grid={est.grid} cabins={est.cabins}/>}
       {page==="inventory"&&<InventoryView inventory={inventory} setInventory={setInventory}/>}
       {page==="dashboard"&&<DashboardView grid={est.grid} cabins={est.cabins} est={est}/>}
-      {page==="admin"&&isAdmin&&<AdminPanel est={est} setEst={fn=>setEstRaw(typeof fn==="function"?fn:p=>({...p,...fn}))} users={users} setUsers={setUsers} currentUser={currentUser}/>}
+      {page==="admin"&&isAdmin&&<AdminPanel est={est} setEst={fn=>setEstRaw(typeof fn==="function"?fn:p=>({...p,...fn}))} users={users} setUsers={setUsers} currentUser={currentUser} setEstRaw={setEstRaw}/>}
     </main>
 
     {modal?.type==="book"&&<Modal onClose={()=>setModal(null)} wide>
@@ -1451,7 +1522,46 @@ function App(){
       <div style={{display:"flex",gap:10}}><button onClick={()=>setModal(null)} style={{flex:1,padding:"12px",borderRadius:12,border:`1px solid ${T.darkSoft}`,background:"transparent",color:T.darkSoft,cursor:"pointer",fontSize:14,fontFamily:font}}>Chiudi</button><button onClick={freeBk} style={{flex:1,...btnS(T.warn),justifyContent:"center",padding:"12px"}}>🗑️ Rimuovi</button></div>
     </Modal>}
 
-    <footer style={{textAlign:"center",padding:"16px",fontSize:10,color:"rgba(110,80,64,.2)",fontStyle:"italic"}}>🌊 Bagno Capri · www.bagnocapri.com — 142 ombrelloni · 30 cabine · v3.2</footer>
+    {/* ══ OCCUPANCY DETAIL MODAL ══ */}
+    {occModal&&<Modal onClose={()=>setOccModal(null)} wide>
+      {(()=>{
+        const isUmb=occModal.type==="umbrella";
+        const occ=getOccupied(occModal.type,selectedDate);
+        const totalItems=isUmb?(()=>{let t=0;est.grid.forEach(r=>r.forEach(c=>{if(c.type==="umbrella")t++;}));return t;})():(()=>{let t=0;est.cabins.forEach(r=>r.forEach(()=>t++));return t;})();
+        const totalRev=occ.reduce((s,o)=>s+o.total,0);
+        return(<>
+          <h3 style={{fontFamily:fontD,fontSize:22,color:T.dark,marginBottom:2}}>{isUmb?"🏖️ Ombrelloni Occupati":"🏠 Cabine Occupate"}</h3>
+          <p style={{color:T.darkSoft,fontSize:12,marginBottom:14}}>Data: <strong>{fmtDate(selectedDate)}</strong> — {occ.length} occupat{isUmb?"i":"e"} su {totalItems} · Incasso giornata: <strong style={{color:T.accent}}>€{totalRev}</strong></p>
+          {occ.length===0?<div style={{textAlign:"center",padding:"32px 0",color:T.darkSoft}}>
+            <div style={{fontSize:36,marginBottom:8}}>{isUmb?"🏖️":"🏠"}</div>
+            <div style={{fontSize:14}}>Nessun{isUmb?"o ombrellone":"a cabina"} occupat{isUmb?"o":"a"} in questa data.</div>
+          </div>
+          :<div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:400,overflowY:"auto"}}>
+            {occ.map((o,i)=>(<div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:i%2===0?"rgba(0,0,0,.02)":"transparent",borderRadius:10,gap:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
+                <div style={{width:36,height:36,borderRadius:8,background:T.warnSoft,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{fontSize:11,fontWeight:700,color:T.warn}}>{isUmb?o.num:`C${o.num}`}</span>
+                </div>
+                <div style={{minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:13,color:T.dark,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{o.client}</div>
+                  <div style={{fontSize:10,color:T.darkSoft}}>{fmtDate(o.from)} → {fmtDate(o.to)}{o.isConv?` · 🤝 ${o.convName||"Conv."}`:""}{o.isHalfDay?" · 🕐 Mezza gg":""}</div>
+                  {o.extras&&(o.extras.lettino>0||o.extras.sdraio>0||o.extras.sedia_regista>0)&&<div style={{fontSize:9,color:T.darkSoft}}>
+                    {[["🛏️",o.extras.lettino],["🪑",o.extras.sdraio],["🎬",o.extras.sedia_regista]].filter(([,n])=>n>0).map(([ic,n])=>`${n}×${ic}`).join("  ")}
+                  </div>}
+                </div>
+              </div>
+              {isUmb&&o.fila&&<span style={{fontSize:9,color:T.darkSoft,padding:"2px 6px",background:"rgba(0,0,0,.04)",borderRadius:5,flexShrink:0}}>F{o.fila}</span>}
+              <span style={{fontFamily:fontD,fontSize:16,color:T.accent,fontWeight:700,flexShrink:0}}>€{o.total}</span>
+            </div>))}
+          </div>}
+          <div style={{display:"flex",gap:10,marginTop:14}}>
+            <button onClick={()=>setOccModal(null)} style={{flex:1,padding:"12px",borderRadius:12,border:`1px solid ${T.darkSoft}`,background:"transparent",color:T.darkSoft,cursor:"pointer",fontSize:14,fontFamily:font}}>Chiudi</button>
+          </div>
+        </>);
+      })()}
+    </Modal>}
+
+    <footer style={{textAlign:"center",padding:"16px",fontSize:10,color:"rgba(110,80,64,.2)",fontStyle:"italic"}}>🌊 Bagno Capri · www.bagnocapri.com — {(()=>{let u=0,c=0;est.grid.forEach(r=>r.forEach(cl=>{if(cl.type==="umbrella")u++;}));est.cabins.forEach(r=>r.forEach(()=>c++));return`${u} ombrelloni · ${c} cabine`;})()}  · v3.3</footer>
     <AIAssistant est={est} clients={clients} currentUser={currentUser}/>
   </div>);
 }
