@@ -43,15 +43,17 @@ const inputSt={width:"100%",padding:"10px 14px",borderRadius:10,border:`1.5px so
 const labelSt={display:"block",fontSize:11,color:T.darkSoft,marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:.8,fontFamily:font};
 
 /* ─── BUILD GRID (configurable) ─── */
-const buildBeachGridCfg=(frontRows=3,frontPerSide=5,backRows=14,backPerSide=4)=>{const rows=[];let n=1;
-  for(let f=1;f<=frontRows;f++){const row=[];for(let c=0;c<frontPerSide;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});row.push({id:uid(),type:"walkway",num:null,bookings:[],fila:f,label:`${f}ª FILA`});for(let c=0;c<frontPerSide;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});rows.push(row);}
-  for(let f=frontRows+1;f<=frontRows+backRows;f++){const row=[];for(let c=0;c<backPerSide;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});row.push({id:uid(),type:"empty",num:null,bookings:[],fila:f});row.push({id:uid(),type:"walkway",num:null,bookings:[],fila:f,label:`${f}ª FILA`});row.push({id:uid(),type:"empty",num:null,bookings:[],fila:f});for(let c=0;c<backPerSide;c++)row.push({id:uid(),type:"umbrella",num:n++,bookings:[],fila:f});rows.push(row);}
-  /* Inverti la numerazione: il numero più alto vicino al mare, il più basso in fondo */
-  const total=n-1;rows.forEach(row=>row.forEach(cell=>{if(cell.type==="umbrella")cell.num=total+1-cell.num;}));
+const buildBeachGridCfg=(frontRows=3,frontPerSide=5,backRows=14,backPerSide=4)=>{const rows=[];
+  for(let f=1;f<=frontRows;f++){const row=[];for(let c=0;c<frontPerSide;c++)row.push({id:uid(),type:"umbrella",num:0,bookings:[],fila:f});row.push({id:uid(),type:"walkway",num:null,bookings:[],fila:f,label:`${f}ª FILA`});for(let c=0;c<frontPerSide;c++)row.push({id:uid(),type:"umbrella",num:0,bookings:[],fila:f});rows.push(row);}
+  for(let f=frontRows+1;f<=frontRows+backRows;f++){const row=[];for(let c=0;c<backPerSide;c++)row.push({id:uid(),type:"umbrella",num:0,bookings:[],fila:f});row.push({id:uid(),type:"empty",num:null,bookings:[],fila:f});row.push({id:uid(),type:"walkway",num:null,bookings:[],fila:f,label:`${f}ª FILA`});row.push({id:uid(),type:"empty",num:null,bookings:[],fila:f});for(let c=0;c<backPerSide;c++)row.push({id:uid(),type:"umbrella",num:0,bookings:[],fila:f});rows.push(row);}
+  /* Numera da destra a sinistra in ogni fila: #1 = estrema destra fila 1 */
+  let n=1;rows.forEach(row=>{const umbs=row.filter(c=>c.type==="umbrella");for(let i=umbs.length-1;i>=0;i--)umbs[i].num=n++;});
   return rows;};
 const buildCabinRowsCfg=(cabinRows=2,cabinsPerRow=15)=>{const rows=[];let n=1;for(let r=0;r<cabinRows;r++){const row=[];for(let c=0;c<cabinsPerRow;c++)row.push({id:uid(),type:"cabana",num:n++,bookings:[]});rows.push(row);}return rows;};
 const buildBeachGrid=()=>buildBeachGridCfg(3,5,14,4);
 const buildCabinRows=()=>buildCabinRowsCfg(2,15);
+/* Rinumera una griglia esistente da destra a sinistra per fila (preserva prenotazioni) */
+const renumberGrid=(grid)=>{let n=1;grid.forEach(row=>{const umbs=row.filter(c=>c.type==="umbrella");for(let i=umbs.length-1;i>=0;i--)umbs[i].num=n++;});return grid;};
 
 /* ── MODIFICATO: halfDay ora usa prezzi manuali invece della percentuale ── */
 const defaultData=()=>({name:"Bagno Capri",grid:buildBeachGrid(),cabins:buildCabinRows(),pricing:{umbrella:25,sunbed:10,cabana:40,sdraio:6,sedia_regista:5},halfDay:{enabled:true,startTime:"13:00",umbrella:15,sunbed:6,cabana:24},seasonPricing:[{id:uid(),name:"Bassa stagione",from:"2026-04-01",to:"2026-06-14",umbrella:18,sunbed:7,cabana:30},{id:uid(),name:"Alta stagione",from:"2026-07-15",to:"2026-08-31",umbrella:35,sunbed:15,cabana:55}]});
@@ -982,7 +984,7 @@ function App(){
 
   /* ── data ── */
   const saved=useMemo(()=>loadData(),[]);
-  const[est,setEstRaw]=useState(()=>saved?.est||defaultData());
+  const[est,setEstRaw]=useState(()=>{const d=saved?.est||defaultData();if(d.grid)renumberGrid(d.grid);return d;});
   const[users,setUsers]=useState(()=>saved?.users||defaultUsers());
   const[clients,setClients]=useState(()=>saved?.clients||defaultClients());
   const[convenzionate,setConvenzionate]=useState(()=>saved?.convenzionate||[]);
@@ -1006,7 +1008,7 @@ function App(){
     try{
       const remote=await cloudFetch(cloudCfg.binId,cloudCfg.apiKey);
       if(remote){
-        if(remote.est)setEstRaw(remote.est);
+        if(remote.est){renumberGrid(remote.est.grid);setEstRaw(remote.est);}
         if(remote.users)setUsers(remote.users);
         if(remote.clients)setClients(remote.clients);
         if(remote.convenzionate)setConvenzionate(remote.convenzionate);
@@ -1054,7 +1056,7 @@ function App(){
       }
       const cfg={binId:decoded.binId,apiKey:decoded.apiKey,pinHash:remote.pinHash||hashPin(setupForm.pin)};
       saveCloudCfg(cfg);
-      if(remote.est)setEstRaw(remote.est);
+      if(remote.est){renumberGrid(remote.est.grid);setEstRaw(remote.est);}
       if(remote.users)setUsers(remote.users);
       if(remote.clients)setClients(remote.clients);
       if(remote.convenzionate)setConvenzionate(remote.convenzionate||[]);
@@ -1106,7 +1108,7 @@ function App(){
     try{
       const remote=await cloudFetch(cfg.binId,cfg.apiKey);
       if(remote){
-        if(remote.est)setEstRaw(remote.est);if(remote.users)setUsers(remote.users);
+        if(remote.est){renumberGrid(remote.est.grid);setEstRaw(remote.est);}if(remote.users)setUsers(remote.users);
         if(remote.clients)setClients(remote.clients);if(remote.convenzionate)setConvenzionate(remote.convenzionate||[]);
         if(remote.inventory)setInventory(remote.inventory||{ombrelloni:[],lettini:[],sdraio:[],sedie_regista:[]});
         saveData(remote);setSyncStatus("ok");setLastSync(new Date());notify("☁️ Dati aggiornati dal cloud!","ok");
