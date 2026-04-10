@@ -158,6 +158,24 @@ const MiniBarChart=({data,labelKey,bars,height=180})=>{
 const Modal=({children,onClose,wide})=>(<div onClick={onClose} style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,animation:"fadeIn .25s"}}><div onClick={e=>e.stopPropagation()} style={{background:T.white,borderRadius:20,padding:"28px 32px",width:wide?600:420,maxWidth:"94vw",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(0,0,0,.3)",animation:"pop .3s",position:"relative"}}><button onClick={onClose} style={{position:"absolute",top:12,right:12,background:"none",border:"none",fontSize:18,cursor:"pointer",color:T.darkSoft}}>✕</button>{children}</div></div>);
 const Notify=({n})=>n?<div style={{position:"fixed",top:16,right:16,padding:"12px 22px",borderRadius:12,background:n.t==="ok"?T.ok:n.t==="err"?T.warn:T.sea,color:"#fff",fontWeight:600,fontSize:13,zIndex:2000,animation:"slideUp .3s",boxShadow:"0 8px 24px rgba(0,0,0,.15)",fontFamily:font}}>{n.m}</div>:null;
 const Stat=({label,value,color,icon,onClick})=>(<div onClick={onClick} style={{...cardS,textAlign:"center",padding:"16px 10px",flex:1,minWidth:110,cursor:onClick?"pointer":"default",transition:"all .15s",border:onClick?`1.5px solid ${T.border}`:`1px solid ${T.border}`}} onMouseEnter={e=>{if(onClick)e.currentTarget.style.transform="scale(1.03)";}} onMouseLeave={e=>{if(onClick)e.currentTarget.style.transform="scale(1)";}}><div style={{fontSize:11,marginBottom:2}}>{icon}</div><div style={{fontFamily:fontD,fontSize:26,color,fontWeight:700}}>{value}</div><div style={{fontSize:10,color:T.darkSoft,marginTop:3,textTransform:"uppercase",letterSpacing:.5}}>{label}{onClick&&" ▸"}</div></div>);
+/* ─── EXTRAS SELECTOR (lettino, sdraio, regista) ─── */
+const EXTRA_TYPES=[{key:"lettino",icon:"🛏️",lbl:"Lettino",priceKey:"sunbed"},{key:"sdraio",icon:"🪑",lbl:"Sdraio",priceKey:"sdraio"},{key:"sedia_regista",icon:"🎬",lbl:"Sedia Regista",priceKey:"sedia_regista"}];
+const ExtrasSelector=({extras,setExtras,pricing,compact})=>{
+  const ex=extras||{lettino:0,sdraio:0,sedia_regista:0};
+  const set=(k,v)=>setExtras({...ex,[k]:Math.max(0,v)});
+  return(<div style={{display:"flex",gap:compact?8:12,flexWrap:"wrap"}}>
+    {EXTRA_TYPES.map(t=>{const n=ex[t.key]||0;const pr=pricing?.[t.priceKey]||0;return(<div key={t.key} style={{display:"flex",alignItems:"center",gap:6,padding:compact?"4px 8px":"8px 12px",background:n>0?T.okSoft:"rgba(0,0,0,.02)",borderRadius:10,border:`1.5px solid ${n>0?T.ok:T.border}`,transition:"all .15s"}}>
+      <span style={{fontSize:compact?14:16}}>{t.icon}</span>
+      <div style={{display:"flex",alignItems:"center",gap:4}}>
+        <button onClick={()=>set(t.key,n-1)} style={{width:compact?22:26,height:compact?22:26,borderRadius:"50%",border:`1px solid ${T.border}`,background:T.white,cursor:"pointer",fontSize:compact?12:14,display:"flex",alignItems:"center",justifyContent:"center",color:T.dark}}>−</button>
+        <span style={{fontFamily:fontD,fontSize:compact?16:20,fontWeight:700,color:n>0?T.ok:T.darkSoft,minWidth:20,textAlign:"center"}}>{n}</span>
+        <button onClick={()=>set(t.key,n+1)} style={{width:compact?22:26,height:compact?22:26,borderRadius:"50%",border:`1px solid ${T.ok}`,background:T.okSoft,cursor:"pointer",fontSize:compact?12:14,display:"flex",alignItems:"center",justifyContent:"center",color:T.ok}}>+</button>
+      </div>
+      {!compact&&<div style={{fontSize:10,color:T.darkSoft}}>{t.lbl}<br/>€{pr}/gg</div>}
+    </div>);})}
+  </div>);
+};
+
 const NAV=[{id:"beach",icon:"🏖️",lbl:"Spiaggia"},{id:"calendar",icon:"📅",lbl:"Calendario"},{id:"clients",icon:"👥",lbl:"Clienti"},{id:"inventory",icon:"📦",lbl:"Archivio"},{id:"dashboard",icon:"📊",lbl:"Dashboard"},{id:"admin",icon:"⚙️",lbl:"Admin"}];
 
 /* ─── BEACH MAP ─── */
@@ -540,7 +558,8 @@ function App(){
   const[currentUser,setCurrentUser]=useState(null);const[page,setPage]=useState("beach");const[selectedDate,setSelectedDate]=useState(today());
   const[modal,setModal]=useState(null);const[notif,setNotif]=useState(null);const[loginPin,setLoginPin]=useState("");
   const[occModal,setOccModal]=useState(null);
-  const[bookForm,setBookForm]=useState({clientName:"",from:today(),days:1,isHalfDay:false,isConv:false,convPkg:"omb_let",prezzoFinale:0});
+  const[editBk,setEditBk]=useState(null); /* {bkId, extras, total} - for inline editing */
+  const[bookForm,setBookForm]=useState({clientName:"",from:today(),days:1,isHalfDay:false,isConv:false,convPkg:"omb_let",prezzoFinale:0,extras:{lettino:0,sdraio:0,sedia_regista:0}});
   const[saveStatus,setSaveStatus]=useState("saved");
   const isAdmin=!!currentUser;
 
@@ -569,8 +588,8 @@ function App(){
   const handleLogin=()=>{const u=users.find(u=>u.pin===loginPin);if(u){setCurrentUser(u);setPage("beach");notify(`Benvenuto, ${u.name}!`);setLoginPin("");}else notify("PIN errato!","err");};
   const onBook=(r,c,cell,bk)=>setModal({type:"history",r,c,cell,src:"grid"});
   const onBookCabin=(r,c,cell,bk)=>setModal({type:"history",r,c,cell,src:"cabin"});
-  const startBookFor=(r,c,cell,src)=>{setBookForm({clientName:"",from:selectedDate,to:addDays(selectedDate,0),days:1,isHalfDay:false,isConv:false,convPkg:"omb_let",pacchetto:"omb_let",prezzoFinale:0,sub:null,umbrellaNum:null});setModal({type:"book",r,c,cell,src});};
-  const startNewBooking=()=>{setBookForm({clientName:"",from:selectedDate,to:addDays(selectedDate,0),days:1,isHalfDay:false,isConv:false,convPkg:"omb_let",pacchetto:"omb_let",prezzoFinale:0,sub:null,umbrellaNum:null,pickType:"umbrella"});setModal({type:"newbook"});};
+  const startBookFor=(r,c,cell,src)=>{const isCab=cell.type==="cabana";setBookForm({clientName:"",from:selectedDate,to:addDays(selectedDate,0),days:1,isHalfDay:false,isConv:false,convPkg:isCab?"cabina":"omb_let",pacchetto:isCab?"cabina":"omb_let",prezzoFinale:0,sub:null,umbrellaNum:null,extras:{lettino:0,sdraio:0,sedia_regista:0},isCabin:isCab});setModal({type:"book",r,c,cell,src});};
+  const startNewBooking=()=>{setBookForm({clientName:"",from:selectedDate,to:addDays(selectedDate,0),days:1,isHalfDay:false,isConv:false,convPkg:"omb_let",pacchetto:"omb_let",prezzoFinale:0,sub:null,umbrellaNum:null,pickType:"umbrella",extras:{lettino:0,sdraio:0,sedia_regista:0},isCabin:false});setModal({type:"newbook"});};
   const findCellByNum=(num,type)=>{if(type==="cabana"){let f=null;est.cabins.forEach((row,r)=>row.forEach((cell,c)=>{if(cell.num===num)f={r,c,cell,src:"cabin"};}));return f;}let f=null;est.grid.forEach((row,r)=>row.forEach((cell,c)=>{if(cell.type==="umbrella"&&cell.num===num)f={r,c,cell,src:"grid"};}));return f;};
 
   const confirmBooking=()=>{
@@ -584,7 +603,7 @@ function App(){
       r=found.r;c=found.c;cell=found.cell;src=found.src;
     } else {r=modal.r;c=modal.c;cell=modal.cell;src=modal.src;}
     const toDate=bookForm.to||addDays(bookForm.from,bookForm.days-1);
-    const nb={id:uid(),clientName:bookForm.clientName,from:bookForm.from,to:toDate,days:bookForm.days,isHalfDay:bookForm.isHalfDay,isConv:bookForm.isConv||false,convPkg:bookForm.convPkg||null,sub:bookForm.sub||null,pacchetto:bookForm.pacchetto||null,total:bookForm.prezzoFinale||0};
+    const nb={id:uid(),clientName:bookForm.clientName,from:bookForm.from,to:toDate,days:bookForm.days,isHalfDay:bookForm.isHalfDay,isConv:bookForm.isConv||false,convPkg:bookForm.convPkg||null,sub:bookForm.sub||null,pacchetto:bookForm.pacchetto||null,total:bookForm.prezzoFinale||0,extras:bookForm.extras||{lettino:0,sdraio:0,sedia_regista:0}};
     if(src==="grid")setGrid(g=>g.map((row,ri)=>row.map((cl,ci)=>ri===r&&ci===c?{...cl,bookings:[...cl.bookings,nb]}:cl)));
     else setCabins(g=>g.map((row,ri)=>row.map((cl,ci)=>ri===r&&ci===c?{...cl,bookings:[...cl.bookings,nb]}:cl)));
     const existingCl=clients.find(cl=>cl.name.toLowerCase()===bookForm.clientName.toLowerCase());
@@ -595,6 +614,17 @@ function App(){
     if(src==="grid")setGrid(g=>g.map((row,ri)=>row.map((cl,ci)=>ri===r&&ci===c?{...cl,bookings:cl.bookings.filter(b=>b.id!==bkId)}:cl)));
     else setCabins(g=>g.map((row,ri)=>row.map((cl,ci)=>ri===r&&ci===c?{...cl,bookings:cl.bookings.filter(b=>b.id!==bkId)}:cl)));
     notify("Rimossa.");};
+
+  /* ═══ UPDATE EXISTING BOOKING (extras, price) ═══ */
+  const updateBooking=(bkId,r,c,src,updates)=>{
+    const updater=g=>g.map((row,ri)=>row.map((cl,ci)=>ri===r&&ci===c?{...cl,bookings:cl.bookings.map(b=>b.id===bkId?{...b,...updates}:b)}:cl));
+    if(src==="grid")setGrid(updater);else setCabins(updater);
+    notify("Aggiornato ✅");
+  };
+  const calcExtrasPrice=(extras,days)=>{
+    const ex=extras||{};
+    return((ex.lettino||0)*(est.pricing.sunbed||10)+(ex.sdraio||0)*(est.pricing.sdraio||5)+(ex.sedia_regista||0)*(est.pricing.sedia_regista||5))*days;
+  };
 
   /* ═══ CONV BOOKING SECTION (riusabile nei modal book e newbook) ═══ */
   const ConvBookingSection=()=>{
@@ -629,6 +659,11 @@ function App(){
           <span style={{fontWeight:700,color:T.gold,marginLeft:8}}>= €{autoPrice}</span>
         </div>
       </div>}
+      {/* Pezzi extra */}
+      <div><label style={labelSt}>🪑 Pezzi aggiuntivi</label>
+        <ExtrasSelector extras={bookForm.extras} setExtras={ex=>{const ext=calcExtrasPrice(ex,bookForm.days);setBookForm(p=>({...p,extras:ex,prezzoFinale:autoPrice+ext}));}} pricing={est.pricing} compact/>
+        {calcExtrasPrice(bookForm.extras,bookForm.days)>0&&<div style={{fontSize:11,color:T.ok,marginTop:4}}>Extra: +€{calcExtrasPrice(bookForm.extras,bookForm.days)}</div>}
+      </div>
       {/* Prezzo finale (override) */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div><div style={{fontSize:11,fontWeight:700,color:T.gold}}>💶 Prezzo finale</div><div style={{fontSize:9,color:T.darkSoft}}>Modificabile</div></div>
@@ -642,24 +677,31 @@ function App(){
 
   /* ═══ NORMAL (non-conv) BOOKING SECTION ═══ */
   const NormalBookingSection=()=>{
+    const isCab=bookForm.isCabin||modal?.cell?.type==="cabana";
+    const extrasTotal=calcExtrasPrice(bookForm.extras,bookForm.days);
     return(<>
-      {/* Pacchetto */}
-      <div><label style={labelSt}>📦 Pacchetto</label>
+      {/* Pacchetto (solo per ombrelloni) */}
+      {!isCab&&<div><label style={labelSt}>📦 Pacchetto</label>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
-          {PACKAGES.map(pk=>(<button key={pk.key} onClick={()=>{const price=lookupPrice(pk.key,bookForm.days);setBookForm(p=>({...p,pacchetto:pk.key,prezzoFinale:price}));}} style={{padding:"7px 5px",borderRadius:8,fontSize:10,fontFamily:font,cursor:"pointer",textAlign:"center",border:bookForm.pacchetto===pk.key?`2px solid ${T.accent}`:`1px solid ${T.border}`,background:bookForm.pacchetto===pk.key?"rgba(226,97,59,.06)":T.white,color:T.dark,fontWeight:bookForm.pacchetto===pk.key?700:400}}>
+          {PACKAGES.map(pk=>(<button key={pk.key} onClick={()=>{const price=lookupPrice(pk.key,bookForm.days)+extrasTotal;setBookForm(p=>({...p,pacchetto:pk.key,prezzoFinale:price}));}} style={{padding:"7px 5px",borderRadius:8,fontSize:10,fontFamily:font,cursor:"pointer",textAlign:"center",border:bookForm.pacchetto===pk.key?`2px solid ${T.accent}`:`1px solid ${T.border}`,background:bookForm.pacchetto===pk.key?"rgba(226,97,59,.06)":T.white,color:T.dark,fontWeight:bookForm.pacchetto===pk.key?700:400}}>
             <div style={{fontSize:14,marginBottom:1}}>{pk.icon}</div>{pk.lbl}
           </button>))}
         </div>
-      </div>
+      </div>}
       {/* Date */}
       <div style={{display:"flex",gap:10}}>
-        <div style={{flex:1}}><label style={labelSt}>Arrivo</label><input type="date" value={bookForm.from} onChange={e=>{const f=e.target.value;const t=(bookForm.to||f)<f?f:(bookForm.to||f);const d=Math.max(1,Math.round((new Date(t)-new Date(f))/(86400000))+1);const price=lookupPrice(bookForm.pacchetto,d);setBookForm(p=>({...p,from:f,to:t,days:d,prezzoFinale:price}));}} style={inputSt}/></div>
-        <div style={{flex:1}}><label style={labelSt}>Partenza</label><input type="date" value={bookForm.to||bookForm.from} min={bookForm.from} onChange={e=>{const t=e.target.value;const d=Math.max(1,Math.round((new Date(t)-new Date(bookForm.from))/(86400000))+1);const price=lookupPrice(bookForm.pacchetto,d);setBookForm(p=>({...p,to:t,days:d,prezzoFinale:price}));}} style={inputSt}/></div>
+        <div style={{flex:1}}><label style={labelSt}>Arrivo</label><input type="date" value={bookForm.from} onChange={e=>{const f=e.target.value;const t=(bookForm.to||f)<f?f:(bookForm.to||f);const d=Math.max(1,Math.round((new Date(t)-new Date(f))/(86400000))+1);const base=isCab?lookupPrice("cabina",d):lookupPrice(bookForm.pacchetto,d);const ext=calcExtrasPrice(bookForm.extras,d);setBookForm(p=>({...p,from:f,to:t,days:d,prezzoFinale:base+ext}));}} style={inputSt}/></div>
+        <div style={{flex:1}}><label style={labelSt}>Partenza</label><input type="date" value={bookForm.to||bookForm.from} min={bookForm.from} onChange={e=>{const t=e.target.value;const d=Math.max(1,Math.round((new Date(t)-new Date(bookForm.from))/(86400000))+1);const base=isCab?lookupPrice("cabina",d):lookupPrice(bookForm.pacchetto,d);const ext=calcExtrasPrice(bookForm.extras,d);setBookForm(p=>({...p,to:t,days:d,prezzoFinale:base+ext}));}} style={inputSt}/></div>
         <div style={{width:55}}><label style={labelSt}>Giorni</label><div style={{...inputSt,textAlign:"center",fontFamily:fontD,fontSize:16,fontWeight:700,color:T.accent,padding:"10px 4px",background:"rgba(0,0,0,.02)"}}>{bookForm.days}</div></div>
       </div>
-      {/* Prezzo listino */}
+      {/* Pezzi extra */}
+      <div><label style={labelSt}>🪑 Pezzi aggiuntivi</label>
+        <ExtrasSelector extras={bookForm.extras} setExtras={ex=>{const ext=calcExtrasPrice(ex,bookForm.days);const base=isCab?lookupPrice("cabina",bookForm.days):lookupPrice(bookForm.pacchetto,bookForm.days);setBookForm(p=>({...p,extras:ex,prezzoFinale:base+ext}));}} pricing={est.pricing}/>
+        {extrasTotal>0&&<div style={{fontSize:11,color:T.ok,marginTop:4}}>Extra: +€{extrasTotal} ({bookForm.days}gg)</div>}
+      </div>
+      {/* Riepilogo prezzo */}
       <div style={{background:"rgba(14,124,140,.05)",borderRadius:8,padding:"8px 12px",border:`1px solid rgba(14,124,140,.12)`}}>
-        <span style={{fontSize:10,color:T.sea,fontWeight:600}}>📋 Listino: €{lookupPrice(bookForm.pacchetto,bookForm.days)} ({PACKAGES.find(p=>p.key===bookForm.pacchetto)?.lbl} × {bookForm.days}gg)</span>
+        <span style={{fontSize:10,color:T.sea,fontWeight:600}}>📋 {isCab?"Cabina":PACKAGES.find(p=>p.key===bookForm.pacchetto)?.lbl} €{isCab?lookupPrice("cabina",bookForm.days):lookupPrice(bookForm.pacchetto,bookForm.days)}{extrasTotal>0?` + Extra €${extrasTotal}`:""} = €{(isCab?lookupPrice("cabina",bookForm.days):lookupPrice(bookForm.pacchetto,bookForm.days))+extrasTotal}</span>
       </div>
       {/* Prezzo finale */}
       <div style={{background:T.goldSoft,borderRadius:10,padding:"12px 14px",border:`1px solid rgba(201,150,58,.25)`}}>
@@ -675,12 +717,18 @@ function App(){
   };
 
   /* ═══ STAGIONALE BOOKING SECTION ═══ */
-  const StagionaleSection=()=>(<div style={{background:T.goldSoft,borderRadius:12,border:`1.5px solid rgba(201,150,58,.35)`,padding:"14px 16px",display:"flex",flexDirection:"column",gap:10}}>
-    <div style={{fontSize:13,fontWeight:700,color:T.gold}}>⭐ Stagionale · {fmtDate(bookForm.from)} → {fmtDate(bookForm.to)}</div>
+  const StagionaleSection=()=>{
+    const extrasTotal=calcExtrasPrice(bookForm.extras,bookForm.days);
+    return(<div style={{background:T.goldSoft,borderRadius:12,border:`1.5px solid rgba(201,150,58,.35)`,padding:"14px 16px",display:"flex",flexDirection:"column",gap:10}}>
+    <div style={{fontSize:13,fontWeight:700,color:T.gold}}>⭐ Stagionale · {fmtDate(bookForm.from)} → {fmtDate(bookForm.to)} · {bookForm.days} gg</div>
+    <div><label style={labelSt}>🪑 Pezzi aggiuntivi</label>
+      <ExtrasSelector extras={bookForm.extras} setExtras={ex=>setBookForm(p=>({...p,extras:ex}))} pricing={est.pricing}/>
+      {extrasTotal>0&&<div style={{fontSize:11,color:T.ok,marginTop:4}}>Extra: +€{extrasTotal} ({bookForm.days}gg)</div>}
+    </div>
     <label style={labelSt}>💶 Prezzo totale (€)</label>
     <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:20,color:T.darkSoft,fontWeight:700}}>€</span>
       <input autoFocus type="number" min="0" value={bookForm.prezzoFinale||""} onChange={e=>setBookForm(p=>({...p,prezzoFinale:+e.target.value||0}))} placeholder="0" style={{...inputSt,fontSize:26,fontFamily:fontD,fontWeight:700,textAlign:"center",flex:1}}/></div>
-  </div>);
+  </div>);};
 
   /* ═══ TIPO ABBONAMENTO SELECTOR ═══ */
   const SubTypeSelector=()=>(<div>
@@ -760,23 +808,60 @@ function App(){
     </Modal>}
 
     {/* ══ HISTORY MODAL ══ */}
-    {modal?.type==="history"&&<Modal onClose={()=>setModal(null)} wide>
+    {modal?.type==="history"&&<Modal onClose={()=>{setModal(null);setEditBk(null);}} wide>
       {(()=>{const{r,c,cell,src}=modal;const isCab=cell.type==="cabana";const allBk=(cell.bookings||[]).slice().sort((a,b)=>a.from.localeCompare(b.from));const activeBk=allBk.filter(b=>selectedDate>=b.from&&selectedDate<=b.to);
         return(<><h3 style={{fontFamily:fontD,fontSize:22,color:T.dark,marginBottom:2}}>{isCab?`🏠 Cabina C${cell.num}`:`🏖️ Omb. n° ${cell.num}`}</h3>
-          <p style={{color:T.darkSoft,fontSize:12,marginBottom:6}}>{allBk.length} prenotazioni</p>
-          {activeBk.length>0?<div style={{background:T.warnSoft,borderRadius:10,padding:"10px 14px",marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:T.warn,marginBottom:4}}>🔴 Occupato ({fmtDate(selectedDate)})</div>{activeBk.map(bk=><div key={bk.id} style={{fontSize:13,color:T.dark}}><strong>{bk.clientName}</strong>{bk.isConv?" 🤝":""} · €{bk.total}</div>)}</div>
+          <p style={{color:T.darkSoft,fontSize:12,marginBottom:6}}>{isCab?"":`Fila ${cell.fila} · `}{allBk.length} prenotazioni</p>
+          {activeBk.length>0?<div style={{background:T.warnSoft,borderRadius:10,padding:"10px 14px",marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:T.warn,marginBottom:4}}>🔴 Occupato ({fmtDate(selectedDate)})</div>{activeBk.map(bk=><div key={bk.id} style={{fontSize:13,color:T.dark}}><strong>{bk.clientName}</strong>{bk.isConv?" 🤝":""}{bk.sub==="stagionale"?" ⭐":""} · €{bk.total}</div>)}</div>
           :<div style={{background:T.okSoft,borderRadius:10,padding:"10px 14px",marginBottom:12}}><div style={{fontSize:12,color:T.ok,fontWeight:600}}>🟢 Disponibile</div></div>}
-          <div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:T.darkSoft,marginBottom:8}}>📋 Storico</div>
+
+          <div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:T.darkSoft,marginBottom:8}}>📋 Prenotazioni</div>
             {allBk.length===0?<div style={{padding:16,textAlign:"center",color:T.darkSoft}}>Nessuna prenotazione.</div>
-            :<div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:300,overflowY:"auto"}}>
+            :<div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:420,overflowY:"auto"}}>
               {allBk.map(bk=>{const isAct=selectedDate>=bk.from&&selectedDate<=bk.to;const isPast=selectedDate>bk.to;
-                return(<div key={bk.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",borderRadius:10,background:isAct?"rgba(231,76,60,.06)":isPast?"rgba(0,0,0,.02)":"rgba(39,174,96,.04)",gap:8}}>
-                  <div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:700,fontSize:13}}>{bk.clientName}</span>{bk.sub==="stagionale"&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:T.goldSoft,color:T.gold,fontWeight:600}}>STAG</span>}{bk.isConv&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:"rgba(14,124,140,.1)",color:T.sea,fontWeight:600}}>CONV</span>}{isAct&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:T.warnSoft,color:T.warn,fontWeight:600}}>ATTIVO</span>}</div><div style={{fontSize:11,color:T.darkSoft}}>{fmtDate(bk.from)} → {fmtDate(bk.to)}</div></div>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontFamily:fontD,fontSize:16,color:T.accent,fontWeight:700}}>€{bk.total}</span><button onClick={()=>{freeBk(bk.id,r,c,src);setModal({type:"history",r,c,cell:{...cell,bookings:cell.bookings.filter(b=>b.id!==bk.id)},src});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12}}>🗑️</button></div>
+                const isEditing=editBk?.bkId===bk.id;
+                const curExtras=isEditing?editBk.extras:(bk.extras||{lettino:0,sdraio:0,sedia_regista:0});
+                const curTotal=isEditing?editBk.total:bk.total;
+                return(<div key={bk.id} style={{padding:"12px 14px",borderRadius:12,background:isAct?"rgba(231,76,60,.04)":isPast?"rgba(0,0,0,.02)":"rgba(39,174,96,.04)",border:`1.5px solid ${isAct?"rgba(231,76,60,.12)":"rgba(0,0,0,.06)"}`,transition:"all .15s"}}>
+                  {/* Header */}
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
+                      <span style={{fontWeight:700,fontSize:14,color:T.dark}}>{bk.clientName}</span>
+                      {bk.sub==="stagionale"&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:T.goldSoft,color:T.gold,fontWeight:600}}>STAG</span>}
+                      {bk.isConv&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:"rgba(14,124,140,.1)",color:T.sea,fontWeight:600}}>CONV</span>}
+                      {isAct&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:T.warnSoft,color:T.warn,fontWeight:600}}>ATTIVO</span>}
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontFamily:fontD,fontSize:18,color:T.accent,fontWeight:700}}>€{curTotal}</span>
+                      <button onClick={()=>{freeBk(bk.id,r,c,src);setEditBk(null);setModal({type:"history",r,c,cell:{...cell,bookings:cell.bookings.filter(b=>b.id!==bk.id)},src});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:13}} title="Rimuovi">🗑️</button>
+                    </div>
+                  </div>
+                  <div style={{fontSize:11,color:T.darkSoft,marginBottom:8}}>{fmtDate(bk.from)} → {fmtDate(bk.to)} · {bk.days||1} gg{bk.pacchetto?` · ${PACKAGES.find(p=>p.key===bk.pacchetto)?.lbl||bk.pacchetto}`:""}</div>
+
+                  {/* Pezzi attuali */}
+                  {(curExtras.lettino>0||curExtras.sdraio>0||curExtras.sedia_regista>0)&&<div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                    {EXTRA_TYPES.map(t=>curExtras[t.key]>0?<span key={t.key} style={{fontSize:11,padding:"3px 8px",borderRadius:6,background:T.okSoft,color:T.ok,fontWeight:600}}>{t.icon} {curExtras[t.key]}× {t.lbl}</span>:null)}
+                  </div>}
+
+                  {/* Modifica pezzi */}
+                  {isEditing?(<div style={{display:"flex",flexDirection:"column",gap:8,padding:"10px 0",borderTop:`1px solid ${T.border}`}}>
+                    <div style={{fontSize:11,fontWeight:700,color:T.sea}}>✏️ Modifica pezzi e prezzo</div>
+                    <ExtrasSelector extras={editBk.extras} setExtras={ex=>setEditBk(p=>({...p,extras:ex}))} pricing={est.pricing} compact/>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:12,color:T.darkSoft}}>💶 Prezzo:</span>
+                      <span style={{fontSize:14,color:T.darkSoft}}>€</span>
+                      <input type="number" min="0" step="0.5" value={editBk.total||""} onChange={e=>setEditBk(p=>({...p,total:+e.target.value||0}))} style={{width:90,padding:"5px 8px",borderRadius:8,border:`2px solid ${T.accent}`,fontSize:18,fontFamily:fontD,fontWeight:700,textAlign:"center",color:T.dark,outline:"none"}}/>
+                    </div>
+                    <div style={{display:"flex",gap:6}}>
+                      <button onClick={()=>{updateBooking(bk.id,r,c,src,{extras:editBk.extras,total:editBk.total});setEditBk(null);const updBk=cell.bookings.map(b=>b.id===bk.id?{...b,extras:editBk.extras,total:editBk.total}:b);setModal({type:"history",r,c,cell:{...cell,bookings:updBk},src});}} style={{...btnS(T.accent),padding:"8px 16px",fontSize:12}}>💾 Salva</button>
+                      <button onClick={()=>setEditBk(null)} style={{...btnS("rgba(0,0,0,.06)",T.dark),padding:"8px 16px",fontSize:12}}>Annulla</button>
+                    </div>
+                  </div>)
+                  :(<button onClick={()=>setEditBk({bkId:bk.id,extras:{...(bk.extras||{lettino:0,sdraio:0,sedia_regista:0})},total:bk.total})} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:11,color:T.sea,fontFamily:font,width:"100%",marginTop:4}}>✏️ Modifica pezzi / prezzo</button>)}
                 </div>);})}
             </div>}
           </div>
-          <div style={{display:"flex",gap:10}}><button onClick={()=>setModal(null)} style={{flex:1,padding:"12px",borderRadius:12,border:`1px solid ${T.darkSoft}`,background:"transparent",color:T.darkSoft,cursor:"pointer",fontSize:14,fontFamily:font}}>Chiudi</button><button onClick={()=>startBookFor(r,c,cell,src)} style={{flex:1,...btnS(T.accent),justifyContent:"center",padding:"12px"}}>+ Nuova prenotazione</button></div>
+          <div style={{display:"flex",gap:10}}><button onClick={()=>{setModal(null);setEditBk(null);}} style={{flex:1,padding:"12px",borderRadius:12,border:`1px solid ${T.darkSoft}`,background:"transparent",color:T.darkSoft,cursor:"pointer",fontSize:14,fontFamily:font}}>Chiudi</button><button onClick={()=>{setEditBk(null);startBookFor(r,c,cell,src);}} style={{flex:1,...btnS(T.accent),justifyContent:"center",padding:"12px"}}>+ Nuova prenotazione</button></div>
         </>);})()}
     </Modal>}
 
@@ -785,8 +870,8 @@ function App(){
       <h3 style={{fontFamily:fontD,fontSize:22,color:T.dark,marginBottom:2}}>+ Nuova Prenotazione</h3>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         <div><label style={labelSt}>Tipo</label><div style={{display:"flex",gap:8}}>
-          <button onClick={()=>setBookForm(p=>({...p,pickType:"umbrella",umbrellaNum:null}))} style={{flex:1,padding:"10px",borderRadius:10,cursor:"pointer",fontFamily:font,fontSize:13,fontWeight:600,border:bookForm.pickType==="umbrella"?`2px solid ${T.accent}`:`1.5px solid ${T.border}`,background:bookForm.pickType==="umbrella"?"rgba(226,97,59,.06)":T.white}}>🏖️ Ombrellone</button>
-          <button onClick={()=>setBookForm(p=>({...p,pickType:"cabin",umbrellaNum:null}))} style={{flex:1,padding:"10px",borderRadius:10,cursor:"pointer",fontFamily:font,fontSize:13,fontWeight:600,border:bookForm.pickType==="cabin"?`2px solid ${T.gold}`:`1.5px solid ${T.border}`,background:bookForm.pickType==="cabin"?T.goldSoft:T.white}}>🏠 Cabina</button>
+          <button onClick={()=>setBookForm(p=>({...p,pickType:"umbrella",umbrellaNum:null,isCabin:false,pacchetto:"omb_let",convPkg:"omb_let"}))} style={{flex:1,padding:"10px",borderRadius:10,cursor:"pointer",fontFamily:font,fontSize:13,fontWeight:600,border:bookForm.pickType==="umbrella"?`2px solid ${T.accent}`:`1.5px solid ${T.border}`,background:bookForm.pickType==="umbrella"?"rgba(226,97,59,.06)":T.white}}>🏖️ Ombrellone</button>
+          <button onClick={()=>setBookForm(p=>({...p,pickType:"cabin",umbrellaNum:null,isCabin:true,pacchetto:"cabina",convPkg:"cabina"}))} style={{flex:1,padding:"10px",borderRadius:10,cursor:"pointer",fontFamily:font,fontSize:13,fontWeight:600,border:bookForm.pickType==="cabin"?`2px solid ${T.gold}`:`1.5px solid ${T.border}`,background:bookForm.pickType==="cabin"?T.goldSoft:T.white}}>🏠 Cabina</button>
         </div></div>
         <div><label style={labelSt}>Numero</label><input type="number" min="1" value={bookForm.umbrellaNum||""} onChange={e=>setBookForm(p=>({...p,umbrellaNum:+e.target.value||null}))} style={{...inputSt,fontSize:22,fontFamily:fontD,textAlign:"center",fontWeight:700}}/>
           {bookForm.umbrellaNum&&(()=>{const found=findCellByNum(bookForm.umbrellaNum,bookForm.pickType==="cabin"?"cabana":"umbrella");if(!found)return<div style={{fontSize:11,color:T.warn,marginTop:4}}>❌ Non trovato</div>;const isOcc=found.cell.bookings?.some(b=>selectedDate>=b.from&&b.to>=selectedDate);return<div style={{fontSize:11,marginTop:4,color:isOcc?T.warn:T.ok}}>{isOcc?"⚠️ Occupato":"✅ Disponibile"}</div>;})()}
