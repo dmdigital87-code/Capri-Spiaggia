@@ -373,6 +373,7 @@ const DashboardView=({grid,cabins,est})=>{
 /* ─── ADMIN ─── */
 const AdminPanel=({est,setEst,users,setUsers,currentUser,setEstRaw})=>{
   const[tab,setTab]=useState("pricing");const[showUF,setShowUF]=useState(false);const[uf,setUf]=useState({name:"",email:"",role:"operator",pin:""});const[editU,setEditU]=useState(null);
+  const[pinChangeVal,setPinChangeVal]=useState("");
   const[beachCfg,setBeachCfg]=useState(()=>({frontRows:est.beachConfig?.frontRows||3,frontPerSide:est.beachConfig?.frontPerSide||5,backRows:est.beachConfig?.backRows||14,backPerSide:est.beachConfig?.backPerSide||4,cabinRows:est.beachConfig?.cabinRows||2,cabinsPerRow:est.beachConfig?.cabinsPerRow||15}));
   const saveU=()=>{if(!uf.name.trim()||!uf.pin)return;if(editU)setUsers(p=>p.map(u=>u.id===editU.id?{...u,...uf}:u));else setUsers(p=>[...p,{id:uid(),...uf}]);setShowUF(false);setEditU(null);};
   const exportCSV=()=>{const bks=[];est.grid.forEach(r=>r.forEach(c=>c.bookings?.forEach(b=>bks.push({...b,num:c.num,tipo:"Omb"}))));est.cabins.forEach(r=>r.forEach(c=>c.bookings?.forEach(b=>bks.push({...b,num:`C${c.num}`,tipo:"Cab"}))));const h="Cliente,Tipo,Numero,Dal,Al,Giorni,Convenzionato,Totale\n";const rows=bks.map(b=>`${b.clientName},${b.tipo},${b.num},${b.from},${b.to},${b.days},${b.isConv?"Sì":"No"},${b.total}`).join("\n");const blob=new Blob([h+rows],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`report_${today()}.csv`;a.click();};
@@ -491,8 +492,19 @@ const AdminPanel=({est,setEst,users,setUsers,currentUser,setEstRaw})=>{
       {tab==="export"&&<div style={{...cardS,display:"flex",flexDirection:"column",gap:16}}>
         <h3 style={{fontFamily:fontD,fontSize:20,color:T.dark}}>📤 Esporta & Dati</h3>
         <button onClick={exportCSV} style={{...btnS(T.accent),padding:"10px 16px",fontSize:12}}>📥 Scarica CSV prenotazioni</button>
+        {/* Cambia PIN accesso */}
         <div style={{borderTop:`1px solid ${T.border}`,paddingTop:14}}>
-          <button onClick={()=>{if(!window.confirm("Azzera tutto?"))return;try{localStorage.removeItem("bagnocapri_v1");localStorage.removeItem("bagnocapri_cloud_v1");}catch(e){}window.location.reload();}} style={{...btnS(T.warn),padding:"10px 16px",fontSize:12}}>🗑️ Reimposta tutto</button>
+          <div style={{fontSize:13,fontWeight:600,color:T.dark,marginBottom:8}}>🔑 PIN di accesso all'app</div>
+          <p style={{fontSize:12,color:T.darkSoft,marginBottom:10}}>PIN attuale: <strong>{getAppPin()}</strong></p>
+          <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+            <div style={{flex:1}}><label style={labelSt}>Nuovo PIN</label><input type="text" maxLength="8" placeholder="Nuovo PIN" value={pinChangeVal||""} onChange={e=>setPinChangeVal(e.target.value.replace(/\D/g,"").slice(0,8))} style={{...inputSt,textAlign:"center",fontSize:18,letterSpacing:6}}/></div>
+            <button onClick={()=>{if(!pinChangeVal||pinChangeVal.length<4){alert("Il PIN deve avere almeno 4 cifre");return;}setAppPin(pinChangeVal);setPinChangeVal("");alert("PIN cambiato! Nuovo PIN: "+pinChangeVal);}} style={{...btnS(T.sea),padding:"10px 16px",fontSize:12,height:"fit-content"}}>Cambia PIN</button>
+          </div>
+        </div>
+        {/* Reset */}
+        <div style={{borderTop:`1px solid ${T.border}`,paddingTop:14}}>
+          <div style={{fontSize:13,fontWeight:600,color:T.warn,marginBottom:4}}>⚠️ Reset completo</div>
+          <button onClick={()=>{if(!window.confirm("Azzera tutto? I dati verranno persi."))return;try{localStorage.removeItem("bagnocapri_v1");localStorage.removeItem("bagnocapri_cloud_v1");localStorage.removeItem("bagnocapri_pin");}catch(e){}window.location.reload();}} style={{...btnS(T.warn),padding:"10px 16px",fontSize:12}}>🗑️ Reimposta tutto</button>
         </div>
       </div>}
     </div>
@@ -549,8 +561,21 @@ const loadData=()=>{try{const r=localStorage.getItem(LS_KEY);return r?JSON.parse
 const saveData=(data)=>{try{localStorage.setItem(LS_KEY,JSON.stringify(data));return true;}catch(e){return false;}};
 
 /* ═══════ MAIN APP ═══════ */
+const APP_PIN_KEY="bagnocapri_pin";
+const getAppPin=()=>{try{return localStorage.getItem(APP_PIN_KEY)||"";}catch(e){return "";}};
+const setAppPin=(pin)=>{try{localStorage.setItem(APP_PIN_KEY,pin);}catch(e){}};
+/* Default PIN setup */
+if(!getAppPin())setAppPin("1234");
+
 function App(){
   const saved=useMemo(()=>loadData(),[]);
+  /* ── PIN GATE ── */
+  const[unlocked,setUnlocked]=useState(()=>!getAppPin()); /* se non c'è PIN, accesso diretto */
+  const[gatePin,setGatePin]=useState("");
+  const[gatePinError,setGatePinError]=useState("");
+  const[showSetPin,setShowSetPin]=useState(false);
+  const[newPin,setNewPin]=useState("");const[newPin2,setNewPin2]=useState("");
+
   const[est,setEstRaw]=useState(()=>{const d=saved?.est||defaultData();if(d.grid)renumberGrid(d.grid);return d;});
   const[users,setUsers]=useState(()=>saved?.users||defaultUsers());
   const[clients,setClients]=useState(()=>saved?.clients||defaultClients());
@@ -558,15 +583,41 @@ function App(){
   const[currentUser,setCurrentUser]=useState(null);const[page,setPage]=useState("beach");const[selectedDate,setSelectedDate]=useState(today());
   const[modal,setModal]=useState(null);const[notif,setNotif]=useState(null);const[loginPin,setLoginPin]=useState("");
   const[occModal,setOccModal]=useState(null);
-  const[editBk,setEditBk]=useState(null); /* {bkId, extras, total} - for inline editing */
+  const[editBk,setEditBk]=useState(null);
   const[bookForm,setBookForm]=useState({clientName:"",from:today(),days:1,isHalfDay:false,isConv:false,convPkg:"omb_let",prezzoFinale:0,extras:{lettino:0,sdraio:0,sedia_regista:0}});
   const[saveStatus,setSaveStatus]=useState("saved");
+  const[lastSaveTime,setLastSaveTime]=useState(null);
   const isAdmin=!!currentUser;
 
-  /* auto-save */
+  /* ── auto-save (debounce 500ms) + beforeunload ── */
   const saveRef=useRef(null);
-  useEffect(()=>{const handler=()=>{try{localStorage.setItem(LS_KEY,JSON.stringify({est,users,clients,inventory}));}catch(e){}};window.addEventListener("beforeunload",handler);return()=>window.removeEventListener("beforeunload",handler);},[est,users,clients,inventory]);
-  useEffect(()=>{setSaveStatus("unsaved");clearTimeout(saveRef.current);saveRef.current=setTimeout(()=>{setSaveStatus("saving");saveData({est,users,clients,inventory});setSaveStatus("saved");},300);return()=>clearTimeout(saveRef.current);},[est,users,clients,inventory]);
+  const dataRef=useRef({est,users,clients,inventory});
+  dataRef.current={est,users,clients,inventory};
+  useEffect(()=>{
+    const handler=()=>{try{localStorage.setItem(LS_KEY,JSON.stringify(dataRef.current));}catch(e){}};
+    window.addEventListener("beforeunload",handler);
+    return()=>window.removeEventListener("beforeunload",handler);
+  },[]);
+  useEffect(()=>{
+    setSaveStatus("unsaved");
+    clearTimeout(saveRef.current);
+    saveRef.current=setTimeout(()=>{
+      setSaveStatus("saving");
+      const ok=saveData({est,users,clients,inventory});
+      setSaveStatus(ok?"saved":"error");
+      if(ok)setLastSaveTime(new Date());
+    },500);
+    return()=>clearTimeout(saveRef.current);
+  },[est,users,clients,inventory]);
+
+  /* ── Salvataggio manuale ── */
+  const manualSave=()=>{
+    setSaveStatus("saving");
+    const ok=saveData({est,users,clients,inventory});
+    setSaveStatus(ok?"saved":"error");
+    if(ok){setLastSaveTime(new Date());notify("💾 Salvato!","ok");}
+    else notify("⚠️ Errore salvataggio","err");
+  };
 
   const notify=(m,t="ok")=>{setNotif({m,t});setTimeout(()=>setNotif(null),3000);};
   const setEst=fn=>setEstRaw(prev=>typeof fn==="function"?fn(prev):{...prev,...fn});
@@ -753,6 +804,19 @@ function App(){
     </div>
   </div>:null);
 
+  /* ═══ PIN GATE SCREEN ═══ */
+  if(!unlocked)return(<div style={{minHeight:"100vh",background:T.bg,fontFamily:font,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+    <div style={{...cardS,width:380,textAlign:"center",animation:"pop .3s"}}>
+      <div style={{fontSize:48,marginBottom:12}}>🏖️</div>
+      <h2 style={{fontFamily:fontD,fontSize:28,color:T.dark,marginBottom:4}}>Bagno Capri</h2>
+      <p style={{color:T.darkSoft,fontSize:13,marginBottom:24}}>Inserisci il PIN per accedere</p>
+      <input autoFocus type="password" value={gatePin} onChange={e=>setGatePin(e.target.value.replace(/\D/g,"").slice(0,8))} onKeyDown={e=>{if(e.key==="Enter"){const stored=getAppPin();if(gatePin===stored){setUnlocked(true);setGatePinError("");}else setGatePinError("PIN errato");setGatePin("");}}} placeholder="• • • •" maxLength="8" style={{...inputSt,textAlign:"center",fontSize:32,letterSpacing:14,marginBottom:8}}/>
+      {gatePinError&&<div style={{fontSize:12,color:T.warn,marginBottom:8}}>{gatePinError}</div>}
+      <button onClick={()=>{const stored=getAppPin();if(gatePin===stored){setUnlocked(true);setGatePinError("");}else{setGatePinError("PIN errato");setGatePin("");}}} style={{...btnS(T.accent),width:"100%",justifyContent:"center",padding:"14px",fontSize:15,marginBottom:12}}>🔓 Accedi</button>
+      <div style={{fontSize:10,color:"rgba(0,0,0,.15)",marginTop:8}}>PIN di default: 1234</div>
+    </div>
+  </div>);
+
   if(page==="login")return(<div style={{minHeight:"100vh",background:T.bg,fontFamily:font,display:"flex",alignItems:"center",justifyContent:"center"}}>
     <div style={{...cardS,width:380,textAlign:"center",animation:"pop .3s"}}><h2 style={{fontFamily:fontD,fontSize:26,color:T.dark,marginBottom:4}}>🏖️ Accesso Staff</h2><p style={{color:T.darkSoft,fontSize:13,marginBottom:20}}>Inserisci il PIN</p>
     <input type="password" value={loginPin} onChange={e=>setLoginPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="PIN" maxLength="8" style={{...inputSt,textAlign:"center",fontSize:28,letterSpacing:10,marginBottom:14}}/>
@@ -765,7 +829,13 @@ function App(){
       <div style={{display:"flex",alignItems:"center",gap:10,marginRight:20}}><span style={{fontFamily:fontD,fontSize:20,color:T.gold,fontWeight:700}}>🏖️ {est.name}</span></div>
       <div style={{display:"flex",gap:2,flex:1}}>{NAV.filter(n=>n.id!=="admin"||isAdmin).map(n=><button key={n.id} onClick={()=>setPage(n.id)} style={{padding:"7px 14px",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontFamily:font,fontWeight:500,background:page===n.id?"rgba(226,97,59,.15)":"transparent",color:page===n.id?T.accent:"rgba(255,255,255,.55)",transition:"all .15s",display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:14}}>{n.icon}</span><span>{n.lbl}</span></button>)}</div>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
-        <span style={{fontSize:10,color:saveStatus==="saved"?"rgba(100,220,100,.8)":"rgba(255,200,0,.8)"}}>{saveStatus==="saved"?"✅":"⏳"}</span>
+        <button onClick={manualSave} title={lastSaveTime?`Ultimo salvataggio: ${lastSaveTime.toLocaleTimeString("it-IT")}`:""} style={{
+          padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontFamily:font,fontWeight:700,
+          background:saveStatus==="unsaved"?"rgba(226,97,59,.9)":saveStatus==="saving"?"rgba(255,200,0,.7)":"rgba(100,220,100,.15)",
+          color:saveStatus==="unsaved"?"#fff":saveStatus==="saving"?"#fff":"rgba(100,220,100,.9)",
+          transition:"all .2s",display:"flex",alignItems:"center",gap:5,
+          boxShadow:saveStatus==="unsaved"?"0 0 8px rgba(226,97,59,.4)":"none"
+        }}>💾 {saveStatus==="unsaved"?"Salva":saveStatus==="saving"?"Salvo...":"Salvato"}</button>
         {isAdmin?<><span style={{fontSize:10,color:T.gold,background:"rgba(201,150,58,.15)",padding:"3px 8px",borderRadius:5,fontWeight:600}}>🔓 {currentUser?.name}</span><button onClick={()=>{setCurrentUser(null);setPage("beach");}} style={{...btnS("rgba(255,255,255,.08)","rgba(255,255,255,.6)"),padding:"6px 12px",fontSize:11}}>Esci</button></>
         :<button onClick={()=>setPage("login")} style={{...btnS("rgba(255,255,255,.08)","rgba(255,255,255,.6)"),padding:"6px 12px",fontSize:11}}>🔒 Login</button>}
       </div>
